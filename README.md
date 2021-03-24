@@ -63,6 +63,8 @@ For a nicer image viewing experience, try:
 
 ## Testing
 
+GUI: ![canvon/CLI-P branch faces-pyqt5 test-suite status](https://api.travis-ci.com/canvon/CLI-P.svg?branch=faces-pyqt5)
+
 There's a (currently very incomplete, but) emerging test suite
 which you can call via: `python -m unittest discover tests`
 

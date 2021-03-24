@@ -1,5 +1,7 @@
 ## CLI-P test suite
 
+GUI: ![canvon/CLI-P branch faces-pyqt5 test-suite status](https://api.travis-ci.com/canvon/CLI-P.svg?branch=faces-pyqt5)
+
 This documents the ways the CLI-P test suite can be run.
 For everything else, see the [main README](../README.md)!
 
