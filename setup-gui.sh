@@ -6,6 +6,6 @@ set -e
 [ -z "${VIRTUAL_ENV-}" ] && . env/bin/activate
 
 # Install GUI dependencies via pip
-pip3 install -r requirements-gui.txt
+pip3 install --upgrade -r requirements-gui.txt
 
 echo "All done."

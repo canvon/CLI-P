@@ -10,7 +10,7 @@ then
 fi
 
 # Install basic dependencies via pip
-pip3 install -r requirements.txt
+pip3 install --upgrade -r requirements.txt
 
 git submodule init
 git submodule update
