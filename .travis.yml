@@ -1,0 +1,7 @@
+language: python
+python:
+  - "3.7"
+install:
+  - ./setup.sh
+script:
+  - python -m unittest discover -v tests
