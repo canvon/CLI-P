@@ -2,9 +2,12 @@
 
 set -e
 
-# Set up python virtualenv
-virtualenv -p python3.7 env
-. env/bin/activate
+if [ -z "${VIRTUAL_ENV-}" ]
+then
+	# Set up python virtualenv
+	virtualenv -p python3.7 env
+	. env/bin/activate
+fi
 
 # Install basic dependencies via pip
 pip3 install -r requirements.txt
