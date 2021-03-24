@@ -32,6 +32,7 @@ cd "$OLD_CWD"
 cd retinaface-pytorch
 echo iglovikov-helper-functions==0.0.53 > requirements.txt
 python setup.py install
+cd "$OLD_CWD"
 
 # Download InsightFace-v2 ArcFace model
 DOWNLOAD_CACHE_DIR="${XDG_CACHE_HOME-$HOME/.cache}/InsightFace-v2"
