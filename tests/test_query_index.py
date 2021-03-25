@@ -2,8 +2,6 @@ import tests.helper
 tests.helper.setupWarningFilters()
 
 import unittest
-import contextlib
-from io import StringIO
 import os.path
 
 class TestQueryIndex(unittest.TestCase):
@@ -32,14 +30,6 @@ class TestQueryIndex(unittest.TestCase):
     def tearDownClass(cls):
         pass
 
-    @classmethod
-    def capture_stdout(cls, code):
-        ret = None
-        with contextlib.closing(StringIO()) as f:
-            with contextlib.redirect_stdout(f):
-                ret = code()
-            return f.getvalue(), ret
-
     def verify_line_structure(self, line, msg=None):
         msg_suffix = "no line structure" + ('' if msg is None else ' : ' + msg)
         if line is None:
@@ -63,7 +53,7 @@ class TestQueryIndex(unittest.TestCase):
         search.in_text = f"{command_name} {value}" if interpolate_value else command_name
         msg_suffix = f"failed at command {command_name!r} data point {value} expect {'success' if expect_success else 'fail'}"
 
-        output, iterationDone = self.capture_stdout(search.do_command)
+        output, iterationDone = tests.helper.capture_stdout(search.do_command)
         if expect_iterationDone is not None:
             self.assertEqual(expect_iterationDone, iterationDone, msg=f"Command {'did' if iterationDone else 'didnt'} request 'no search'. => {msg_suffix}")
 
@@ -114,7 +104,7 @@ class TestQueryIndex(unittest.TestCase):
         for command in ["ft", "ft show"]:
             with self.subTest(command=command):
                 search.in_text = command
-                output, iterationDone = self.capture_stdout(search.do_command)
+                output, iterationDone = tests.helper.capture_stdout(search.do_command)
                 self.assertTrue(iterationDone, msg=f"Command {command!r} didn't request 'no search'.")
                 self.verify_singleline_structure(output, msg=f"Command {command!r} doesn't have single-line output. (output was: {output!r})")
                 self.assertTrue(f"threshold is {last_value}" in output, msg=f"Command {command!r} didn't show current value. (output was: {output!r})")
@@ -123,7 +113,7 @@ class TestQueryIndex(unittest.TestCase):
         """Test query-index.Search text command 'h' (help)."""
         search = self.search
         search.in_text = "h"
-        output, iterationDone = self.capture_stdout(search.do_command)
+        output, iterationDone = tests.helper.capture_stdout(search.do_command)
         self.assertTrue(iterationDone, msg="Command didn't request 'no search'.")
         self.assertTrue(output.count("\n") >= 3, msg="Command didn't give multi-line output message.")
         self.assertTrue("Enter a search query" in output, msg="Command missing basic help string.")
@@ -168,9 +158,9 @@ class TestQueryIndex(unittest.TestCase):
             false_positives = [] if search_text not in known_false_positives else known_false_positives[search_text]
             with self.subTest(search_text=search_text, image_name=image_name):
                 search.in_text = search_text
-                _, iterationDone = self.capture_stdout(search.do_command)
+                _, iterationDone = tests.helper.capture_stdout(search.do_command)
                 self.assertFalse(iterationDone, msg=f"Search.do_command() requested 'no search' for search_text={search_text!r}")
-                self.capture_stdout(search.do_search)
+                tests.helper.capture_stdout(search.do_search)
                 if type(image_name) is str:
                     found = False
                     for result in search.prepare_results():
