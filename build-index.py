@@ -55,10 +55,7 @@ class Scanner:
 
         self.db = database.get(path_prefix=self.path_prefix, pack_type=self.pack_type)
 
-    def clip_paths(self, base_paths):
-        if type(base_paths) is str:
-            # Make a proper list... Otherwise, the string will be decomposed and only its first character used as base_path ...
-            base_paths = [base_paths]
+    def clip_paths(self, *base_paths):
         with torch.no_grad():
             for base_path in base_paths:
                 print(f"CLIPing {base_path}...")
@@ -187,9 +184,9 @@ class Scanner:
         print(f"Indexed {i} images and {faces_i} faces.")
         print(f"Done!")
 
-    def run(self, base_paths):
+    def run(self, *base_paths):
         try:
-            self.clip_paths(base_paths)
+            self.clip_paths(*base_paths)
         except KeyboardInterrupt:
             print(f"Interrupted!")
 
@@ -198,4 +195,4 @@ class Scanner:
 
 if __name__ == '__main__':
     scanner = Scanner()
-    scanner.run(sys.argv[1:])
+    scanner.run(*sys.argv[1:])  # (Unpack command-line arguments (except for script name) as positional parameters.)
