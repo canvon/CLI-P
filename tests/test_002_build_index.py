@@ -26,11 +26,11 @@ class TestBuildIndex(unittest.TestCase):
         # TODO: Check presence of output files, and that their timestamps
         #       are more recent, after run...
         dir = Path(self.samples_path)
-        # (Go through file extensions, produce a recursive glob generator and,
+        # (Go through file extensions, produce a glob generator and,
         # from that, a constant 1 generator, which can then be summed up
         # to give the paths count without building up lists storing all the elements.
         # The per-extension counts are then summed up to give the overall result.)
-        n_images_expected = sum([sum(1 for _ in dir.rglob('*' + ext)) for ext in scanner.file_extensions])
+        n_images_expected = sum([sum(1 for _ in dir.glob('*' + ext)) for ext in scanner.file_extensions])
         with scanner.db.env.begin(db=scanner.db.fn_db) as txn:
             n_images_db = txn.stat()['entries']
         self.assertEqual(n_images_expected, n_images_db, msg=f"build-index gave {'less' if n_images_db < n_images_expected else 'more'} results than expected")
