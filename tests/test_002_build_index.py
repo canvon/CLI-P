@@ -2,6 +2,7 @@ import tests.helper
 tests.helper.setupWarningFilters()
 
 import unittest
+import re
 from pathlib import Path
 
 class TestBuildIndex(unittest.TestCase):
@@ -16,16 +17,28 @@ class TestBuildIndex(unittest.TestCase):
         cls.build_index = __import__("build-index")
 
     def test_scan_samples(self):
-        """Test build-index run. This may take a long time... (Around 1-2s per image?)"""
+        """Test build-index run. This may take a long time, around 1-2 seconds per image."""
         # clusters: Would otherwise fail in faiss with:
         #
         #     Error: 'nx >= k' failed: Number of training points (12) should be
         #     at least as large as number of clusters (100)
         #
         scanner = self.build_index.Scanner(path_prefix=self.path_prefix, clusters=1)
-        output, _ = tests.helper.capture_stdout(lambda: scanner.run(self.samples_path))
+        output, errout, _ = tests.helper.capture_stdout_cstderr(lambda: scanner.run(self.samples_path))
         # TODO: Check presence of output files, and that their timestamps
         #       are more recent, after run...
+
+        err_whitelist = [
+            r'WARNING clustering \d+ points to \d+ centroids: please provide at least \d+ training points',
+        ]
+        err_lines = errout.splitlines()
+        for line in err_lines:
+            found = False
+            for pattern in err_whitelist:
+                if re.match(pattern, line) is not None:
+                    found = True
+                    break
+            self.assertTrue(found, msg=f"build-index had unexpected error output {line!r}. (All error output was {errout!r}. Output was {output!r}.)")
 
         dir = Path(self.samples_path)
         # (Go through file extensions, produce a glob generator and,
