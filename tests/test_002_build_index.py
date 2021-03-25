@@ -16,15 +16,17 @@ class TestBuildIndex(unittest.TestCase):
         cls.build_index = __import__("build-index")
 
     def test_scan_samples(self):
+        """Test build-index run. This may take a long time... (Around 1-2s per image?)"""
         # clusters: Would otherwise fail in faiss with:
         #
         #     Error: 'nx >= k' failed: Number of training points (12) should be
         #     at least as large as number of clusters (100)
         #
         scanner = self.build_index.Scanner(path_prefix=self.path_prefix, clusters=1)
-        scanner.run(self.samples_path)
+        output, _ = tests.helper.capture_stdout(lambda: scanner.run(self.samples_path))
         # TODO: Check presence of output files, and that their timestamps
         #       are more recent, after run...
+
         dir = Path(self.samples_path)
         # (Go through file extensions, produce a glob generator and,
         # from that, a constant 1 generator, which can then be summed up
@@ -33,7 +35,14 @@ class TestBuildIndex(unittest.TestCase):
         n_images_expected = sum([sum(1 for _ in dir.glob('*' + ext)) for ext in scanner.file_extensions])
         with scanner.db.env.begin(db=scanner.db.fn_db) as txn:
             n_images_db = txn.stat()['entries']
-        self.assertEqual(n_images_expected, n_images_db, msg=f"build-index gave {'less' if n_images_db < n_images_expected else 'more'} results than expected")
+        self.assertEqual(n_images_expected, n_images_db, msg=f"build-index gave {'less' if n_images_db < n_images_expected else 'more'} results than expected! Output was {output!r}.")
+
+        out_lines = output.splitlines()
+        self.assertGreaterEqual(len(out_lines), 2, msg=f"build-index didn't give enough output lines (but {output!r})")
+        out_final = out_lines[-1]
+        self.assertEqual("Done!", out_final, msg=f"build-index final output line didn't indicate success. Output was {output!r}.")
+        out_summary = out_lines[-2]
+        self.assertTrue(out_summary.startswith(f"Indexed {n_images_db} images"), msg=f"build-index didn't give expected summary line (but {out_summary!r}). Complete output was {output!r}.")
 
     def run(self, result=None):
         result = super().run(result)
