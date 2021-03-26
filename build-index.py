@@ -55,45 +55,57 @@ class Scanner:
 
         self.db = database.get(path_prefix=self.path_prefix, pack_type=self.pack_type)
 
+    @torch.no_grad()
+    def clip_file(self, tfn):
+        ext = os.path.splitext(tfn)
+        if len(ext) < 2 or not ext[1].lower() in self.file_extensions:
+            return
+        if self.db.check_skip(tfn):
+            return
+        clip_done = self.db.check_fn(tfn)
+        faces_done = not self.faces or self.db.check_face(tfn)
+        if clip_done and faces_done:
+            return
+        image = None
+        try:
+            image = Image.open(tfn).convert("RGB")
+            idx = None
+            if not faces_done:
+                rgb = np.array(image)
+            if not clip_done:
+                image = self.transform(image).unsqueeze(0).to(device)
+                image_features = self.model.encode_image(image)
+                image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+                idx = self.db.put_fn(tfn, image_features.detach().cpu().numpy())
+            else:
+                idx = self.db.get_fn_idx(tfn)
+            if not faces_done:
+                annotations = get_face_embeddings(image=rgb)
+                self.db.put_faces(idx, annotations)
+            return True
+        except KeyboardInterrupt:
+            raise KeyboardInterrupt()
+        except Exception as e:
+            self.db.put_skip(tfn)
+            return False
+
     def clip_paths(self, *base_paths):
-        with torch.no_grad():
-            for base_path in base_paths:
-                print(f"CLIPing {base_path}...")
-                for fn in os.listdir(base_path):
-                    tfn = os.path.join(base_path, fn)
-                    ext = os.path.splitext(fn)
-                    if len(ext) < 2 or not ext[1].lower() in self.file_extensions:
-                        continue
-                    if self.db.check_skip(tfn):
-                        continue
-                    clip_done = self.db.check_fn(tfn)
-                    faces_done = not self.faces or self.db.check_face(tfn)
-                    if clip_done and faces_done:
-                        continue
-                    image = None
-                    try:
-                        image = Image.open(tfn).convert("RGB")
-                        idx = None
-                        if not faces_done:
-                            rgb = np.array(image)
-                        if not clip_done:
-                            image = self.transform(image).unsqueeze(0).to(device)
-                            image_features = self.model.encode_image(image)
-                            image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-                            idx = self.db.put_fn(tfn, image_features.detach().cpu().numpy())
-                        else:
-                            idx = self.db.get_fn_idx(tfn)
-                        if not faces_done:
-                            annotations = get_face_embeddings(image=rgb)
-                            self.db.put_faces(idx, annotations)
-                        print(".", end="", flush=True)
-                    except KeyboardInterrupt:
-                        raise KeyboardInterrupt()
-                    except Exception as e:
-                        print("#", end="", flush=True)
-                        self.db.put_skip(tfn)
-                        continue
-                print(flush=True)
+        for base_path in base_paths:
+            print(f"CLIPing {base_path}...")
+            for fn in os.listdir(base_path):
+                tfn = os.path.join(base_path, fn)
+                result = self.clip_file(tfn)
+                if result is None:
+                    # Indicates a skip. Don't output anything.
+                    continue
+                if result:
+                    # Indicate successful processing of image into the database.
+                    print(".", end="", flush=True)
+                else:
+                    # Indicate error.
+                    print("#", end="", flush=True)
+                    # TODO: Add optional feature to output the exception message.
+            print(flush=True)
 
     def index_images(self):
         i = 0
