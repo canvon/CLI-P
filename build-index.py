@@ -3,8 +3,6 @@ import os.path
 from pathlib import Path
 import sys
 import numpy as np
-import lmdb
-import warnings
 from torch_device import device
 import torch
 import clip
@@ -84,8 +82,8 @@ class Scanner:
                 self.db.put_faces(idx, annotations)
             return True
         except KeyboardInterrupt:
-            raise KeyboardInterrupt()
-        except Exception as e:
+            raise
+        except Exception:
             self.db.put_skip(tfn)
             return False
 
