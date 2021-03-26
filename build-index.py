@@ -90,7 +90,16 @@ class Scanner:
     def clip_paths(self, *base_paths):
         for base_path in base_paths:
             print(f"CLIPing {base_path}...")
-            for fn in os.listdir(base_path):
+            # TODO: Add option to choose implementation:
+            if True:
+                # Efficient: Don't store intermediate list of all files in directory.
+                fns = os.scandir(base_path)
+            else:
+                # Meaningful database index numbers, resembling directory listed by ls or a file manager.
+                fns = os.listdir(base_path)
+                fns.sort()
+            # Iterate through all the dir's filenames.
+            for fn in fns:
                 tfn = os.path.join(base_path, fn)
                 result = self.clip_file(tfn)
                 if result is None:
