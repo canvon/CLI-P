@@ -88,7 +88,7 @@ class Scanner:
 
     def clip_paths(self, *base_paths, sort_fns=False):
         for path in map(Path, base_paths):  # map(): Upgrade potential strings. Should be harmless when already a Path instance.
-            print(f"CLIPing {path}...")
+            print(f"CLIPing {str(path)!r}...")  # (Quote a bit, but not too much. User output would not need PosixPath(...) wrapping.)
             fns = None
             if not path.is_dir():
                 # Treat explicitly given filename as directory with a single entry.
