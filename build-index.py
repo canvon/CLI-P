@@ -1,5 +1,3 @@
-import os
-import os.path
 from pathlib import Path
 import sys
 import numpy as np
@@ -54,9 +52,10 @@ class Scanner:
         self.db = database.get(path_prefix=self.path_prefix, pack_type=self.pack_type)
 
     @torch.no_grad()
-    def clip_file(self, tfn):
-        ext = os.path.splitext(tfn)
-        if len(ext) < 2 or not ext[1].lower() in self.file_extensions:
+    def clip_file(self, fn):
+        fn = Path(fn)  # Upgrade potential string. Should be harmless when already a Path instance.
+        tfn = str(fn)
+        if fn.suffix.lower() not in self.file_extensions:
             return
         if self.db.check_skip(tfn):
             return
@@ -88,20 +87,19 @@ class Scanner:
             return False
 
     def clip_paths(self, *base_paths):
-        for base_path in base_paths:
+        for base_path in map(Path, base_paths):  # map(): Upgrade potential strings. Should be harmless when already a Path instance.
             print(f"CLIPing {base_path}...")
             # TODO: Add option to choose implementation:
             if True:
                 # Efficient: Don't store intermediate list of all files in directory.
-                fns = os.scandir(base_path)
+                fns = base_path.iterdir()
             else:
                 # Meaningful database index numbers, resembling directory listed by ls or a file manager.
-                fns = os.listdir(base_path)
+                fns = list(base_path.iterdir())
                 fns.sort()
             # Iterate through all the dir's filenames.
             for fn in fns:
-                tfn = os.path.join(base_path, fn)
-                result = self.clip_file(tfn)
+                result = self.clip_file(fn)
                 if result is None:
                     # Indicates a skip. Don't output anything.
                     continue
