@@ -1,6 +1,7 @@
 from pathlib import Path
 import sys
 import collections
+import logging
 import numpy as np
 from torch_device import device
 import torch
@@ -10,6 +11,8 @@ from PIL import Image
 
 import database
 from faces import get_faces as get_face_embeddings, load_arcface
+
+logger = logging.getLogger(__name__)
 
 
 # Enable to run face detection and calculate face embeddings that can be used to search for faces
@@ -32,7 +35,7 @@ class Scanner:
 
     def __init__(self, *, faces=faces, pack_type=pack_type, clusters=clusters,
         file_extensions=file_extensions, skip_paths=skip_paths,
-        path_prefix=None, dry_run=False):
+        path_prefix=None, loud=False, dry_run=False):
         # Copy instance variables from keyword arguments defaulted to globals.
         self.faces = faces
         self.pack_type = pack_type
@@ -44,6 +47,7 @@ class Scanner:
         elif type(path_prefix) is str:
             path_prefix = Path(path_prefix)
         self.path_prefix = path_prefix
+        self.loud = loud
         self.dry_run = dry_run
 
         if self.dry_run:
@@ -93,8 +97,14 @@ class Scanner:
             return True
         except KeyboardInterrupt:
             raise
-        except Exception:
-            if not self.dry_run:
+        except Exception as ex:
+            mark_skip = True
+            if self.dry_run:
+                mark_skip = False
+            if self.loud:
+                logger.warning("build-index.Scanner.clip_file(): Exception %s processing image %r%s: %s",
+                    type(ex).__name__, tfn, " (will mark as skip in db)" if mark_skip else "", ex)
+            if mark_skip:
                 self.db.put_skip(tfn)
             return False
 
@@ -135,7 +145,6 @@ class Scanner:
                 else:
                     # Indicate error.
                     print("#", end="", flush=True)
-                    # TODO: Add optional feature to output the exception message.
             print(flush=True)
             # Front-queue collected directories.
             if sort_fns:
