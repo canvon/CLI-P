@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+import collections
 import numpy as np
 from torch_device import device
 import torch
@@ -98,7 +99,9 @@ class Scanner:
             return False
 
     def clip_paths(self, *base_paths, sort_fns=False):
-        for path in map(Path, base_paths):  # map(): Upgrade potential strings. Should be harmless when already a Path instance.
+        path_queue = collections.deque(map(Path, base_paths))  # map(): Upgrade potential strings. Should be harmless when already a Path instance.
+        while len(path_queue) > 0:
+            path = path_queue.popleft()
             print(f"CLIPing {str(path)!r}...")  # (Quote a bit, but not too much. User output would not need PosixPath(...) wrapping.)
             fns = None
             if not path.is_dir():
@@ -113,7 +116,12 @@ class Scanner:
                 fns = list(path.iterdir())
                 fns.sort()
             # Iterate through all the dir's filenames.
+            subdirs = []
             for fn in fns:
+                # Collect sub-directories for later front-queueing.
+                if fn.is_dir():
+                    subdirs.append(fn)
+                    continue
                 result = self.clip_file(fn)
                 if result is None:
                     # Indicates a skip. Don't output anything.
@@ -129,6 +137,10 @@ class Scanner:
                     print("#", end="", flush=True)
                     # TODO: Add optional feature to output the exception message.
             print(flush=True)
+            # Front-queue collected directories.
+            if sort_fns:
+                subdirs.sort()
+            path_queue.extendleft(subdirs)
 
     def index_images(self):
         if self.dry_run:
