@@ -30,7 +30,8 @@ skip_paths = []
 class Scanner:
 
     def __init__(self, *, faces=faces, pack_type=pack_type, clusters=clusters,
-        file_extensions=file_extensions, skip_paths=skip_paths, path_prefix=None):
+        file_extensions=file_extensions, skip_paths=skip_paths,
+        path_prefix=None, dry_run=False):
         # Copy instance variables from keyword arguments defaulted to globals.
         self.faces = faces
         self.pack_type = pack_type
@@ -42,12 +43,19 @@ class Scanner:
         elif type(path_prefix) is str:
             path_prefix = Path(path_prefix)
         self.path_prefix = path_prefix
+        self.dry_run = dry_run
 
-        self.model, self.transform = clip.load("ViT-B/32", device=device, jit=False)
-        self.model.eval()
+        if self.dry_run:
+            print("Dry run: Skipping load CLIP model.")
+        else:
+            self.model, self.transform = clip.load("ViT-B/32", device=device, jit=False)
+            self.model.eval()
 
         if self.faces:
-            load_arcface()
+            if self.dry_run:
+                print("Dry run: Additionally, would have loaded arcface, now.")
+            else:
+                load_arcface()
 
         self.db = database.get(path_prefix=self.path_prefix, pack_type=self.pack_type)
 
@@ -66,6 +74,8 @@ class Scanner:
         image = None
         try:
             image = Image.open(tfn).convert("RGB")
+            if self.dry_run:
+                return True
             idx = None
             if not faces_done:
                 rgb = np.array(image)
@@ -83,7 +93,8 @@ class Scanner:
         except KeyboardInterrupt:
             raise
         except Exception:
-            self.db.put_skip(tfn)
+            if not self.dry_run:
+                self.db.put_skip(tfn)
             return False
 
     def clip_paths(self, *base_paths, sort_fns=False):
@@ -106,6 +117,9 @@ class Scanner:
                 result = self.clip_file(fn)
                 if result is None:
                     # Indicates a skip. Don't output anything.
+                    if self.dry_run:
+                        # (..except for dry run.)
+                        print("_", end="", flush=True)
                     continue
                 if result:
                     # Indicate successful processing of image into the database.
@@ -117,6 +131,9 @@ class Scanner:
             print(flush=True)
 
     def index_images(self):
+        if self.dry_run:
+            print("Dry run: Skipping prepare indexes.")
+            return
         i = 0
         faces_i = 0
         with self.db.env.begin(db=self.db.fn_db) as fn_txn:
@@ -206,6 +223,8 @@ class Scanner:
         print(f"Done!")
 
     def run(self, *base_paths):
+        if self.dry_run:
+            print("Dry run: This will visit all paths and load all images; but AI processing will be skipped.")
         try:
             self.clip_paths(*base_paths)
         except KeyboardInterrupt:
