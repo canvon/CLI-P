@@ -86,16 +86,20 @@ class Scanner:
             self.db.put_skip(tfn)
             return False
 
-    def clip_paths(self, *base_paths):
-        for base_path in map(Path, base_paths):  # map(): Upgrade potential strings. Should be harmless when already a Path instance.
-            print(f"CLIPing {base_path}...")
-            # TODO: Add option to choose implementation:
-            if True:
+    def clip_paths(self, *base_paths, sort_fns=False):
+        for path in map(Path, base_paths):  # map(): Upgrade potential strings. Should be harmless when already a Path instance.
+            print(f"CLIPing {path}...")
+            fns = None
+            if not path.is_dir():
+                # Treat explicitly given filename as directory with a single entry.
+                # Should help to share code, and to support them at all.
+                fns = [path]
+            elif not sort_fns:
                 # Efficient: Don't store intermediate list of all files in directory.
-                fns = base_path.iterdir()
+                fns = path.iterdir()
             else:
                 # Meaningful database index numbers, resembling directory listed by ls or a file manager.
-                fns = list(base_path.iterdir())
+                fns = list(path.iterdir())
                 fns.sort()
             # Iterate through all the dir's filenames.
             for fn in fns:
