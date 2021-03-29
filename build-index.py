@@ -44,7 +44,7 @@ class Scanner:
         self.skip_paths = list(skip_paths)
         if path_prefix is None:
             path_prefix = Path('.')
-        elif type(path_prefix) is str:
+        elif not isinstance(path_prefix, Path):
             path_prefix = Path(path_prefix)
         self.path_prefix = path_prefix
         self.loud = loud
@@ -66,7 +66,9 @@ class Scanner:
 
     @torch.no_grad()
     def clip_file(self, fn):
-        fn = Path(fn)  # Upgrade potential string. Should be harmless when already a Path instance.
+        # Upgrade potential string. Keep unchanged when already a Path instance, due to time cost...
+        if not isinstance(fn, Path):
+            fn = Path(fn)
         tfn = str(fn)
         if fn.suffix.lower() not in self.file_extensions:
             return
@@ -109,7 +111,10 @@ class Scanner:
             return False
 
     def clip_paths(self, *base_paths, sort_fns=False):
-        path_queue = collections.deque(map(Path, base_paths))  # map(): Upgrade potential strings. Should be harmless when already a Path instance.
+        path_queue = collections.deque(
+            # Upgrade potential strings. Use unchanged when already a Path instance, due to time cost...
+            map(lambda p: p if isinstance(p, Path) else Path(p), base_paths)
+        )
         while len(path_queue) > 0:
             path = path_queue.popleft()
             print(f"CLIPing {str(path)!r}...")  # (Quote a bit, but not too much. User output would not need PosixPath(...) wrapping.)
