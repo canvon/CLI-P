@@ -66,6 +66,17 @@ class Scanner:
 
     @torch.no_grad()
     def clip_file(self, fn):
+        """
+        CLIP a single file. Checks against several counter-indications, which return None.
+        Any problems on actually processing the given file name are caught, and return False.
+        Otherwise (or just after reading as image file in case of dry run), returns True.
+
+        Note that this function will record previously-excepted file names in the database permanently
+        (unless during dry run). Run clear_skip.py to reset that part of the db.
+
+        :param fn: File name of image to CLIP; ideally, already a pathlib.Path instance.
+        :returns: On skip, returns None. On problem processing image, returns False. Otherwise, returns True.
+        """
         # Upgrade potential string. Keep unchanged when already a Path instance, due to time cost...
         if not isinstance(fn, Path):
             fn = Path(fn)
@@ -104,13 +115,14 @@ class Scanner:
             if self.dry_run:
                 mark_skip = False
             if self.loud:
-                logger.warning("build-index.Scanner.clip_file(): Exception %s processing image %r%s: %s",
+                logger.warning("Exception %s processing image %r%s: %s",
                     type(ex).__name__, tfn, " (will mark as skip in db)" if mark_skip else "", ex)
             if mark_skip:
                 self.db.put_skip(tfn)
             return False
 
     def clip_paths(self, *base_paths, sort_fns=False):
+        PATH_EXCEPTION_WHITELIST = (FileNotFoundError, PermissionError)
         path_queue = collections.deque(
             # Upgrade potential strings. Use unchanged when already a Path instance, due to time cost...
             map(lambda p: p if isinstance(p, Path) else Path(p), base_paths)
@@ -118,43 +130,62 @@ class Scanner:
         while len(path_queue) > 0:
             path = path_queue.popleft()
             print(f"CLIPing {str(path)!r}...")  # (Quote a bit, but not too much. User output would not need PosixPath(...) wrapping.)
-            fns = None
-            if not path.is_dir():
-                # Treat explicitly given filename as directory with a single entry.
-                # Should help to share code, and to support them at all.
-                fns = [path]
-            elif not sort_fns:
-                # Efficient: Don't store intermediate list of all files in directory.
-                fns = path.iterdir()
-            else:
-                # Meaningful database index numbers, resembling directory listed by ls or a file manager.
-                fns = list(path.iterdir())
-                fns.sort()
-            # Iterate through all the dir's filenames.
             subdirs = []
-            for fn in fns:
-                # Collect sub-directories for later front-queueing.
-                if fn.is_dir():
-                    subdirs.append(fn)
-                    continue
-                result = self.clip_file(fn)
-                if result is None:
-                    # Indicates a skip. Don't output anything.
-                    if self.dry_run:
-                        # (..except for dry run.)
-                        print("_", end="", flush=True)
-                    continue
-                if result:
-                    # Indicate successful processing of image into the database.
-                    print(".", end="", flush=True)
+            try:
+                fns = None
+                if not path.is_dir():
+                    # Treat explicitly given filename as directory with a single entry.
+                    # Should help to share code, and to support them at all.
+                    fns = [path]
+                elif not sort_fns:
+                    # Efficient: Don't store intermediate list of all files in directory.
+                    fns = path.iterdir()
                 else:
-                    # Indicate error.
-                    print("#", end="", flush=True)
-            print(flush=True)
-            # Front-queue collected directories.
-            if sort_fns:
-                subdirs.sort()
-            path_queue.extendleft(subdirs)
+                    # Meaningful database index numbers, resembling directory listed by ls or a file manager.
+                    fns = list(path.iterdir())
+                    fns.sort()
+                # Iterate through all the dir's filenames.
+                for fn in fns:
+                    fn_visual = '?'
+                    # (Both ensure fn_visual will be output, as well as that
+                    # a single filename error won't prevent processing of
+                    # rest of directory (and collecting all the sub-directories).)
+                    try:
+                        # Collect sub-directories for later front-queueing.
+                        if fn.is_dir():
+                            fn_visual = '/'
+                            subdirs.append(fn)
+                            continue
+
+                        # Actually process file as image.
+                        result = self.clip_file(fn)
+
+                        # Decide status indicator for this step in the long-running operation.
+                        if result is None:
+                            fn_visual = '_' if self.dry_run else None
+                            continue
+                        fn_visual = '.' if result else '#'
+                    except PATH_EXCEPTION_WHITELIST as ex:
+                        if self.loud:
+                            logger.warning("Exception %s while processing path element %r: %s",
+                                type(ex).__name__, str(fn), ex)
+                        fn_visual = '#'
+                        continue
+                    finally:
+                        if fn_visual is not None:
+                            print(fn_visual, end="", flush=True)
+            except PATH_EXCEPTION_WHITELIST as ex:
+                if self.loud:
+                    logger.warning("Exception %s while iterating through path %r: %s",
+                        type(ex).__name__, str(path), ex)
+                print("!", end="", flush=True)
+                continue
+            finally:
+                print(flush=True)
+                # Front-queue collected directories.
+                if sort_fns:
+                    subdirs.sort()
+                path_queue.extendleft(subdirs)
 
     def index_images(self):
         if self.dry_run:
