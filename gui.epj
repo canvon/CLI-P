@@ -99,7 +99,8 @@
       "models_store.py",
       "tests/test_001_clean.py",
       "tests/test_002_build_index.py",
-      "tests/helper.py"
+      "tests/helper.py",
+      "main_helper.py"
     ],
     "SPELLEXCLUDES": "",
     "SPELLLANGUAGE": "en_US",

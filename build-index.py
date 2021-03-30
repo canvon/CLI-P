@@ -9,10 +9,12 @@ import clip
 import faiss
 from PIL import Image
 
+import main_helper
 import database
 from faces import get_faces as get_face_embeddings, load_arcface
 
-logger = logging.getLogger(__name__)
+loggerName = main_helper.getLoggerName(name=__name__, package=__package__, file=__file__)
+logger = logging.getLogger(loggerName)
 
 
 # Enable to run face detection and calculate face embeddings that can be used to search for faces
@@ -291,5 +293,7 @@ class Scanner:
 
 
 if __name__ == '__main__':
+    main_helper.setupCLI()
+
     scanner = Scanner()
     scanner.run(*sys.argv[1:])  # (Unpack command-line arguments (except for script name) as positional parameters.)
