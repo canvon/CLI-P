@@ -7,7 +7,6 @@ import numpy as np
 import models_store  # (imports torch_device)
 import torch
 import clip
-import faiss
 from PIL import Image
 
 import main_helper
@@ -265,6 +264,7 @@ class Scanner:
         if self.dry_run:
             print("Dry run: Skipping prepare indexes.")
             return
+        import faiss  # Do so only now that we know that we'll actually use it.
         i = 0
         faces_i = 0
         with self.db.env.begin(db=self.db.fn_db) as fn_txn:
