@@ -11,7 +11,6 @@ import torch
 import torchvision.ops
 import xdg.BaseDirectory
 from torchvision import transforms
-from retinaface.pre_trained_models import get_model
 from align_faces import warp_and_crop_face
 import align_faces
 import main_helper
@@ -24,6 +23,7 @@ def load_resnet(device=default_device):
     load_start = time.perf_counter()
 
     model = None
+    from retinaface.pre_trained_models import get_model
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         if device == 'cpu':
