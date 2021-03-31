@@ -1,9 +1,10 @@
 import sys
+import time
 from pathlib import Path
 import collections
 import logging
 import numpy as np
-from torch_device import device
+import models_store  # (imports torch_device)
 import torch
 import clip
 import faiss
@@ -48,6 +49,10 @@ dry_run = False
 
 
 DRY_RUN_MSG = "This will visit all paths and load all images; but AI processing will be skipped."
+
+CLIP_MODEL_KEY = "clip"
+store_clip_model = models_store.store.register_lazy_or_getitem(CLIP_MODEL_KEY,
+    lambda device: clip.load("ViT-B/32", device=device, jit=False))
 
 
 class Scanner:
@@ -112,19 +117,40 @@ class Scanner:
         self.dry_run = dry_run
 
 
-        if self.dry_run:
-            print("Dry run: Skipping load CLIP model.")
-        else:
-            self.model, self.transform = clip.load("ViT-B/32", device=device, jit=False)
-            self.model.eval()
-
-        if self.faces:
-            if self.dry_run:
-                print("Dry run: Additionally, would have loaded arcface, now.")
-            else:
-                load_arcface()
+        self.loaded_clip_model = False
+        self.loaded_arcface_model = False
 
         self.db = database.get(path_prefix=self.path_prefix, pack_type=self.pack_type)
+
+    def load_clip_model(self):
+        if self.loaded_clip_model:
+            return
+        if self.dry_run:
+            logger.warning("Loading CLIP model during dry run... This should not happen!")
+        logger.info("Loading CLIP model...")
+        load_start = time.perf_counter()
+
+        self.model, self.transform = store_clip_model.get()
+        self.clip_device = store_clip_model.loaded_device
+        self.model.eval()
+        self.loaded_clip_model = True
+
+        load_time = time.perf_counter() - load_start
+        logger.debug("Finished loading CLIP model after %fs.", load_time)
+
+    def load_arcface_model(self):
+        if self.loaded_arcface_model:
+            return
+        if self.dry_run:
+            logger.warning("Loading arcface model during dry run... This should not happen!")
+        logger.info("Loading arcface model...")
+        load_start = time.perf_counter()
+
+        load_arcface()
+        self.loaded_arcface_model = True
+
+        load_time = time.perf_counter() - load_start
+        logger.debug("Finished loading arcface model after %fs.", load_time)
 
     @torch.no_grad()
     def clip_file(self, fn):
@@ -160,13 +186,15 @@ class Scanner:
             if not faces_done:
                 rgb = np.array(image)
             if not clip_done:
-                image = self.transform(image).unsqueeze(0).to(device)
+                self.load_clip_model()
+                image = self.transform(image).unsqueeze(0).to(self.clip_device)
                 image_features = self.model.encode_image(image)
                 image_features = image_features / image_features.norm(dim=-1, keepdim=True)
                 idx = self.db.put_fn(tfn, image_features.detach().cpu().numpy())
             else:
                 idx = self.db.get_fn_idx(tfn)
             if not faces_done:
+                self.load_arcface_model()
                 annotations = get_face_embeddings(image=rgb)
                 self.db.put_faces(idx, annotations)
             return True
