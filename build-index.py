@@ -37,7 +37,7 @@ path_prefix = None
 
 # Sort directory listings before processing the directory.
 # This should give more predictable behaviour like the ls command or a file manager.
-sort_fns = False
+sort_fns = True
 
 # Loud mode will spill out exceptions / log error messages.
 loud = False
