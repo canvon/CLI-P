@@ -1,4 +1,5 @@
 import sys
+import argparse
 from pathlib import Path
 import logging
 
@@ -25,6 +26,7 @@ class CLI:
     def __init__(self, *, invokedAs=None):
         self.invokedAs = invokedAs
         self.processName = None
+        self.argvParser = None
         if self.invokedAs is None:  # Unknown.
             # No prefix, for now.
             pass
@@ -35,17 +37,44 @@ class CLI:
         else:  # Assume path to script. With -m, it's an absolute path, otherwise whatever the user typed/completed.
             # Use script's basename (without .py extension) as prefix.
             self.processName = Path(self.invokedAs).stem
+        self.loggingLevel = None
+        self.loggingLevelNames = ['NOTSET', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+        self.loggingPrefix = '' if self.processName is None else self.processName + ': '
         self.loggingFormat = ''.join([
-            ('' if self.processName is None else self.processName.replace('%', '%%') + ': '),
+            self.loggingPrefix.replace('%', '%%'),
             '%(asctime)s %(levelname)s:%(name)s:%(message)s',
         ])
 
     def setupLogging(self):
-        logging.basicConfig(format=self.loggingFormat)
+        logging.basicConfig(format=self.loggingFormat, level=self.loggingLevel)
 
-def setupCLI():
+    def setupArgvParser(self, parser=None):
+        if self.argvParser is not None:
+            raise RuntimeError("argv parser already set up")
+        if parser is None:
+            parser = argparse.ArgumentParser()
+        self.argvParser = parser
+
+        self.argvParser.add_argument('--log-level', dest='loggingLevel', default=None,
+            choices=self.loggingLevelNames)
+
+    def runArgvParser(self):
+        if self.argvParser is None:
+            raise RuntimeError("argv parser missing, please call setupArgvParser(), first")
+        self.args = self.argvParser.parse_args()
+
+        if 'loggingLevel' in self.args and self.args.loggingLevel is not None:
+            level = self.args.loggingLevel
+            if level not in self.loggingLevelNames:
+                print(self.loggingPrefix + f'error: Invalid logging level {level!r} requested', file=sys.stderr, flush=True)
+                sys.exit(2)
+            self.loggingLevel = getattr(logging, level)
+
+def setupCLI(*, argvParser=None):
     global cli
     cli = CLI(invokedAs=sys.argv[0])
+    cli.setupArgvParser(argvParser)
+    cli.runArgvParser()
     cli.setupLogging()
     return cli
 
@@ -53,7 +82,6 @@ def no_main():
     raise RuntimeError("This module can't be used as script, main or entry point.")
 
 def example_main():
-    print("Setting up logging...", flush=True)
     setupCLI()
     print("Doing some example logging..."
         " (debug, info, warning, error, critical; of which"
