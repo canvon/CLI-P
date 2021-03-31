@@ -35,6 +35,10 @@ skip_paths = []
 # Path prefix to prepend before any database path names.
 path_prefix = None
 
+# Sort directory listings before processing the directory.
+# This should give more predictable behaviour like the ls command or a file manager.
+sort_fns = False
+
 # Loud mode will spill out exceptions / log error messages.
 loud = False
 
@@ -50,7 +54,7 @@ class Scanner:
 
     def __init__(self, *, faces=faces, pack_type=pack_type, clusters=clusters,
         file_extensions=file_extensions, skip_paths=skip_paths,
-        path_prefix=path_prefix, loud=loud, dry_run=dry_run):
+        path_prefix=path_prefix, sort_fns=sort_fns, loud=loud, dry_run=dry_run):
 
 
         # Copy instance variables from keyword arguments defaulted to globals.
@@ -94,6 +98,10 @@ class Scanner:
         elif not isinstance(path_prefix, Path):
             path_prefix = Path(path_prefix)
         self.path_prefix = path_prefix
+
+        if not isinstance(sort_fns, bool):
+            raise TypeError(f"sort_fns needs to be a bool, but got type {type(sort_fns)}")
+        self.sort_fns = sort_fns
 
         if not isinstance(loud, bool):
             raise TypeError(f"loud needs to be a bool, but got type {type(loud)}")
@@ -175,7 +183,7 @@ class Scanner:
                 self.db.put_skip(tfn)
             return False
 
-    def clip_paths(self, *base_paths, sort_fns=False):
+    def clip_paths(self, *base_paths):
         PATH_EXCEPTION_WHITELIST = (FileNotFoundError, PermissionError)
         path_queue = collections.deque(
             # Upgrade potential strings. Use unchanged when already a Path instance, due to time cost...
@@ -191,7 +199,7 @@ class Scanner:
                     # Treat explicitly given filename as directory with a single entry.
                     # Should help to share code, and to support them at all.
                     fns = [path]
-                elif not sort_fns:
+                elif not self.sort_fns:
                     # Efficient: Don't store intermediate list of all files in directory.
                     fns = path.iterdir()
                 else:
@@ -237,7 +245,7 @@ class Scanner:
             finally:
                 print(flush=True)
                 # Front-queue collected directories.
-                if sort_fns:
+                if self.sort_fns:
                     subdirs.sort()
                 path_queue.extendleft(subdirs)
 
@@ -392,6 +400,15 @@ if __name__ == '__main__':
         help="Path prefix to prepend before any database path names." +
             f" (The default is {path_prefix!r}, but the Path instance around argument will automatically be added.)")
 
+    parser.add_argument('--sort-filenames', '--sort-fns', dest='sort_fns', default=sort_fns,
+        action='store_const', const=True,
+        help="Sort directory listings before processing the directory."
+            " This should give more predictable behaviour like the ls command or a file manager." +
+            (" " + BOOL_DEFAULT_MSG if sort_fns else ""))
+    parser.add_argument('--no-sort-filenames', '--no-sort-fns', dest='sort_fns',
+        action='store_const', const=False,
+        help=("" if sort_fns else BOOL_DEFAULT_MSG))
+
     parser.add_argument('--loud', dest='loud', default=loud, action='store_const', const=True,
         help="Log exception message instead of just printing a status character. ('#' or '!')" +
             ("" + BOOL_DEFAULT_MSG if loud else ""))
@@ -414,6 +431,7 @@ if __name__ == '__main__':
             file_extensions=cli.args.file_extensions,
             skip_paths=cli.args.skip_paths,
             path_prefix=cli.args.path_prefix,
+            sort_fns=cli.args.sort_fns,
             loud=cli.args.loud,
             dry_run=cli.args.dry_run,
         )
