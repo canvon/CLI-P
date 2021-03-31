@@ -48,11 +48,31 @@ class CLI:
     def setupLogging(self):
         logging.basicConfig(format=self.loggingFormat, level=self.loggingLevel)
 
+    @classmethod
+    def createArgvParser(cls, **kwargs):
+        """Create an argparse.ArgumentParser with certain defaults.
+        Additionally, all keyword arguments given here are forwarded to the ctor.
+
+        Other parts of the code should use this (main_helper.CLI.createArgvParser())
+        to get a parser to pass into main_helper.setupCLI().
+        """
+        forward_kwargs = {
+            # We need this to avoid "ps-auxw" being line-broken at the dash.
+            # Newlines, any amount of them, seem to be replaced by a single space
+            # if we would leave the default, but we want to force a line break
+            # to avoid the unfortunate one.
+            'formatter_class': argparse.RawDescriptionHelpFormatter,
+            'epilog': "CLI-P is commandline driven semantic image search using OpenAI's CLIP."
+                "\nBy ps-auxw. OO/GUI work by canvon.",
+        }
+        forward_kwargs.update(kwargs)
+        return argparse.ArgumentParser(**forward_kwargs)
+
     def setupArgvParser(self, parser=None):
         if self.argvParser is not None:
             raise RuntimeError("argv parser already set up")
         if parser is None:
-            parser = argparse.ArgumentParser()
+            parser = self.createArgvParser()
         self.argvParser = parser
 
         self.argvParser.add_argument('--log-level', dest='loggingLevel', default=None,

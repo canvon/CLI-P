@@ -1,5 +1,4 @@
 from pathlib import Path
-import sys
 import collections
 import logging
 import numpy as np
@@ -293,7 +292,14 @@ class Scanner:
 
 
 if __name__ == '__main__':
-    main_helper.setupCLI()
+    parser = main_helper.CLI.createArgvParser(description="Indexes images for CLI-P.")
+    parser.add_argument('base_paths', nargs='*', type=Path, metavar='BASE_PATH',
+        help="Filesystem paths to CLIP."
+            " Will recurse through directories."
+            " Image file names can be given explicitly,"
+            " but still must match one of the configured file extensions."
+            "\n\nWhen no base paths are given, will only rebuild the faiss index.")
+    cli = main_helper.setupCLI(argvParser=parser)
 
     scanner = Scanner()
-    scanner.run(*sys.argv[1:])  # (Unpack command-line arguments (except for script name) as positional parameters.)
+    scanner.run(*cli.args.base_paths)
