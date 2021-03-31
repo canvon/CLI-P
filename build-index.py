@@ -31,12 +31,25 @@ file_extensions = ['.jpg', '.jpeg', '.png']
 # Paths containing these will be skipped during index creation
 skip_paths = []
 
+# Path prefix to prepend before any database path names.
+path_prefix = None
+
+# Loud mode will spill out exceptions / log error messages.
+loud = False
+
+# Dry run will read all directories / image files, but skip AI processing.
+# Used for development/testing.
+dry_run = False
+
+
+DRY_RUN_MSG = "This will visit all paths and load all images; but AI processing will be skipped."
+
 
 class Scanner:
 
     def __init__(self, *, faces=faces, pack_type=pack_type, clusters=clusters,
         file_extensions=file_extensions, skip_paths=skip_paths,
-        path_prefix=None, loud=False, dry_run=False):
+        path_prefix=path_prefix, loud=loud, dry_run=dry_run):
         # Copy instance variables from keyword arguments defaulted to globals.
         self.faces = faces
         self.pack_type = pack_type
@@ -282,7 +295,7 @@ class Scanner:
 
     def run(self, *base_paths):
         if self.dry_run:
-            print("Dry run: This will visit all paths and load all images; but AI processing will be skipped.")
+            print("Dry run:", DRY_RUN_MSG)
         try:
             self.clip_paths(*base_paths)
         except KeyboardInterrupt:
@@ -293,13 +306,30 @@ class Scanner:
 
 if __name__ == '__main__':
     parser = main_helper.CLI.createArgvParser(description="Indexes images for CLI-P.")
+
     parser.add_argument('base_paths', nargs='*', type=Path, metavar='BASE_PATH',
         help="Filesystem paths to CLIP."
             " Will recurse through directories."
             " Image file names can be given explicitly,"
             " but still must match one of the configured file extensions."
             "\n\nWhen no base paths are given, will only rebuild the faiss index.")
+
+    parser.add_argument('--path-prefix', type=Path, default=path_prefix,
+        help="Path prefix to prepend before any database path names.")
+
+    parser.add_argument('--loud', dest='loud', default=loud, action='store_const', const=True,
+        help="Log exception message instead of just printing a status character. ('#' or '!')")
+    parser.add_argument('--no-loud', dest='loud', action='store_const', const=False)
+
+    parser.add_argument('--dry-run', dest='dry_run', default=dry_run, action='store_const', const=True,
+        help=DRY_RUN_MSG)
+    parser.add_argument('--no-dry-run', dest='dry_run', action='store_const', const=False)
+
     cli = main_helper.setupCLI(argvParser=parser)
 
-    scanner = Scanner()
+    scanner = Scanner(
+        path_prefix=cli.args.path_prefix,
+        loud=cli.args.loud,
+        dry_run=cli.args.dry_run,
+    )
     scanner.run(*cli.args.base_paths)
