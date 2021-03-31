@@ -16,6 +16,10 @@ def getLoggerName(*, name, package, file):
             return basename
     return name
 
+loggerName = getLoggerName(name=__name__, package=__package__, file=__file__)
+logger = logging.getLogger(loggerName)
+
+
 cli = None
 class CLI:
     def __init__(self, *, invokedAs=None):
@@ -48,5 +52,23 @@ def setupCLI():
 def no_main():
     raise RuntimeError("This module can't be used as script, main or entry point.")
 
+def example_main():
+    print("Setting up logging...", flush=True)
+    setupCLI()
+    print("Doing some example logging..."
+        " (debug, info, warning, error, critical; of which"
+        " everything below warning will likely not be passed through.)", flush=True)
+
+    x = 3
+    y = 7
+    logger.debug("This is an example debug-level message. %d + %d == %d", x, y, x + y)
+
+    logger.info("This is an example info-level message: Going up through the logging levels!")
+    logger.warning("Attention! Here is an example warning-level message.")
+    logger.error("The following example error has occurred: ...")
+    logger.critical("Critical example situation...")
+
+    print("End of example logging.", flush=True)
+
 if __name__ == '__main__':
-    no_main()
+    example_main()
