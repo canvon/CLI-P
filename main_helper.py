@@ -40,12 +40,15 @@ class CLI:
         self.loggingLevel = None
         self.loggingLevelNames = ['NOTSET', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
         self.loggingPrefix = '' if self.processName is None else self.processName + ': '
-        self.loggingFormat = ''.join([
-            self.loggingPrefix.replace('%', '%%'),
-            '%(asctime)s %(levelname)s:%(name)s:%(message)s',
-        ])
+        self.loggingHaveTime = None
+        self.loggingFormat = None
 
     def setupLogging(self):
+        self.loggingFormat = (
+            self.loggingPrefix.replace('%', '%%') +
+            ('%(asctime)s ' if self.loggingHaveTime else '') +
+            '%(levelname)s:%(name)s:%(message)s'
+        )
         logging.basicConfig(format=self.loggingFormat, level=self.loggingLevel)
 
     @classmethod
@@ -78,6 +81,10 @@ class CLI:
         self.argvParser.add_argument('--log-level', dest='loggingLevel', default=None,
             choices=self.loggingLevelNames)
 
+        self.argvParser.add_argument('--log-timestamp', '--log-ts', dest='log_ts', action='store_const', const=True,
+            help="Have a timestamp with each logged message.")
+        self.argvParser.add_argument('--no-log-timestamp', '--no-log-ts', dest='log_ts', action='store_const', const=False)
+
     def runArgvParser(self):
         if self.argvParser is None:
             raise RuntimeError("argv parser missing, please call setupArgvParser(), first")
@@ -89,6 +96,8 @@ class CLI:
                 print(self.loggingPrefix + f'error: Invalid logging level {level!r} requested', file=sys.stderr, flush=True)
                 sys.exit(2)
             self.loggingLevel = getattr(logging, level)
+        if 'log_ts' in self.args and self.args.log_ts is not None:
+            self.loggingHaveTime = self.args.log_ts
 
 def setupCLI(*, argvParser=None):
     global cli
