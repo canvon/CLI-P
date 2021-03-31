@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 import collections
 import logging
@@ -50,19 +51,58 @@ class Scanner:
     def __init__(self, *, faces=faces, pack_type=pack_type, clusters=clusters,
         file_extensions=file_extensions, skip_paths=skip_paths,
         path_prefix=path_prefix, loud=loud, dry_run=dry_run):
+
+
         # Copy instance variables from keyword arguments defaulted to globals.
+
+        if not isinstance(faces, bool):
+            raise TypeError(f"faces needs to be a bool, but got type {type(faces)}")
         self.faces = faces
+
+        if not isinstance(pack_type, str):
+            raise TypeError(f"pack_type needs to be a string, but got type {type(pack_type)}")
+        if pack_type not in ['<L', '<Q']:
+            raise ValueError(f"invalid pack_type {pack_type!r}")
         self.pack_type = pack_type
+
+        if not isinstance(clusters, int):
+            raise TypeError(f"clusters needs to be an int, but got type {type(clusters)}")
         self.clusters = clusters
-        self.file_extensions = list(file_extensions)
-        self.skip_paths = list(skip_paths)
+
+        # Validate file extensions list.
+        if not isinstance(file_extensions, list):
+            raise TypeError(f"file_extensions needs to be a list of strings, but got type {type(file_extensions)}")
+        for i, ext in enumerate(file_extensions):
+            if not isinstance(ext, str):
+                raise TypeError(f"file_extensions needs to be a list of strings, but index {i} has type {type(ext)}")
+            if not ext.startswith('.'):
+                raise ValueError(f"file_extensions[{i}] doesn't start with a dot '.', but reads {ext!r}")
+            if not len(ext) > 1:
+                raise ValueError(f"file_extensions[{i}] doesn't contain an extension, but reads {ext!r}")
+        self.file_extensions = list(file_extensions)  # (Take a copy in case the original changes, or we want to change our view.)
+
+        # Validate skip paths list.
+        if not isinstance(skip_paths, list):
+            raise TypeError(f"skip_paths needs to be a list of strings, but got type {type(skip_paths)}")
+        for i, path in enumerate(skip_paths):
+            if not isinstance(path, str):
+                raise TypeError(f"skip_paths needs to be a list of strings, but index {i} has type {type(path)}")
+        self.skip_paths = list(skip_paths)  # (Take copy.)
+
         if path_prefix is None:
             path_prefix = Path('.')
         elif not isinstance(path_prefix, Path):
             path_prefix = Path(path_prefix)
         self.path_prefix = path_prefix
+
+        if not isinstance(loud, bool):
+            raise TypeError(f"loud needs to be a bool, but got type {type(loud)}")
         self.loud = loud
+
+        if not isinstance(dry_run, bool):
+            raise TypeError(f"dry_run needs to be a bool, but got type {type(dry_run)}")
         self.dry_run = dry_run
+
 
         if self.dry_run:
             print("Dry run: Skipping load CLIP model.")
@@ -129,7 +169,7 @@ class Scanner:
             if self.dry_run:
                 mark_skip = False
             if self.loud:
-                logger.warning("Exception %s processing image %r%s: %s",
+                logger.warning("Got exception %s processing image %r%s: %s",
                     type(ex).__name__, tfn, " (will mark as skip in db)" if mark_skip else "", ex)
             if mark_skip:
                 self.db.put_skip(tfn)
@@ -181,7 +221,7 @@ class Scanner:
                         fn_visual = '.' if result else '#'
                     except PATH_EXCEPTION_WHITELIST as ex:
                         if self.loud:
-                            logger.warning("Exception %s while processing path element %r: %s",
+                            logger.warning("Got exception %s while processing path element %r: %s",
                                 type(ex).__name__, str(fn), ex)
                         fn_visual = '#'
                         continue
@@ -190,7 +230,7 @@ class Scanner:
                             print(fn_visual, end="", flush=True)
             except PATH_EXCEPTION_WHITELIST as ex:
                 if self.loud:
-                    logger.warning("Exception %s while iterating through path %r: %s",
+                    logger.warning("Got exception %s while iterating through path %r: %s",
                         type(ex).__name__, str(path), ex)
                 print("!", end="", flush=True)
                 continue
@@ -314,22 +354,73 @@ if __name__ == '__main__':
             " but still must match one of the configured file extensions."
             "\n\nWhen no base paths are given, will only rebuild the faiss index.")
 
+    BOOL_DEFAULT_MSG = "(This is the default.)"
+
+    parser.add_argument('--faces', dest='faces', default=faces, action='store_const', const=True,
+        help="Run face detection and calculate face embeddings that can be used to search for faces." +
+            (" " + BOOL_DEFAULT_MSG if faces else ""))
+    parser.add_argument('--no-faces', dest='faces', action='store_const', const=False,
+        help=("" if faces else BOOL_DEFAULT_MSG))
+
+    parser.add_argument('--pack-type', default=pack_type,
+        help="If you have more than 2^32 images or faces, set this to '<Q' instead of '<L'." +
+            f" (The default is {pack_type!r}.)")
+
+    parser.add_argument('--clusters', type=int, default=clusters,
+        help="Split up index into this many clusters, 100 seems like a good number,"
+            " but having at the very least 36 * clusters images is recommended." +
+            f" (The default is {clusters}.)")
+
+    parser.add_argument('--file-extensions', dest='file_extensions', metavar='EXTS',
+        type=(lambda exts: exts.split(',')), default=list(file_extensions),  # (Note: Take copy!)
+        help="Accepted file extensions. (Have to be readable as standard RGB images by pillow and opencv.)"
+            "\n\nSpecify as comma-separated list, with leading dot on each extension." +
+            f" (The default is {','.join(file_extensions)!r}.)")
+    parser.add_argument('--add-file-extension', dest='file_extensions', metavar='EXT', action='append',
+        help="Adds a single file extension to the list of accepted file extensions."
+            " Specify with leading dot.")
+
+    parser.add_argument('--skip-paths', dest='skip_paths', metavar='PATHS',
+        type=(lambda paths: paths.split(',')), default=list(skip_paths),  # (Note: Take copy!)
+        help="Paths containing these will be skipped during index creation."
+            " Specify as comma-separated list." +
+            f" (The default is {','.join(skip_paths)!r}.)")
+    parser.add_argument('--add-skip-path', dest='skip_paths', metavar='PATH', action='append',
+        help="Adds a single path to the list of to-be-skipped paths.")
+
     parser.add_argument('--path-prefix', type=Path, default=path_prefix,
-        help="Path prefix to prepend before any database path names.")
+        help="Path prefix to prepend before any database path names." +
+            f" (The default is {path_prefix!r}, but the Path instance around argument will automatically be added.)")
 
     parser.add_argument('--loud', dest='loud', default=loud, action='store_const', const=True,
-        help="Log exception message instead of just printing a status character. ('#' or '!')")
-    parser.add_argument('--no-loud', dest='loud', action='store_const', const=False)
+        help="Log exception message instead of just printing a status character. ('#' or '!')" +
+            ("" + BOOL_DEFAULT_MSG if loud else ""))
+    parser.add_argument('--no-loud', dest='loud', action='store_const', const=False,
+        help=("" if loud else BOOL_DEFAULT_MSG))
 
     parser.add_argument('--dry-run', dest='dry_run', default=dry_run, action='store_const', const=True,
-        help=DRY_RUN_MSG)
-    parser.add_argument('--no-dry-run', dest='dry_run', action='store_const', const=False)
+        help=DRY_RUN_MSG +
+            (" " + BOOL_DEFAULT_MSG if dry_run else ""))
+    parser.add_argument('--no-dry-run', dest='dry_run', action='store_const', const=False,
+        help=("" if dry_run else BOOL_DEFAULT_MSG))
 
     cli = main_helper.setupCLI(argvParser=parser)
 
-    scanner = Scanner(
-        path_prefix=cli.args.path_prefix,
-        loud=cli.args.loud,
-        dry_run=cli.args.dry_run,
-    )
+    try:
+        scanner = Scanner(
+            faces=cli.args.faces,
+            pack_type=cli.args.pack_type,
+            clusters=cli.args.clusters,
+            file_extensions=cli.args.file_extensions,
+            skip_paths=cli.args.skip_paths,
+            path_prefix=cli.args.path_prefix,
+            loud=cli.args.loud,
+            dry_run=cli.args.dry_run,
+        )
+    # Simplify error output for likely user / command-line argument errors:
+    except (TypeError, ValueError) as ex:
+        logger.fatal("Got exception %s from build-index.Scanner constructor (likely a command-line argument error): %s",
+            type(ex).__name__, ex)
+        sys.exit(2)
+
     scanner.run(*cli.args.base_paths)

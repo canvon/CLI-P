@@ -78,12 +78,20 @@ class CLI:
             parser = self.createArgvParser()
         self.argvParser = parser
 
-        self.argvParser.add_argument('--log-level', dest='loggingLevel', default=None,
-            choices=self.loggingLevelNames)
+        BOOL_DEFAULT_MSG = "(This is the default.)"
 
-        self.argvParser.add_argument('--log-timestamp', '--log-ts', dest='log_ts', action='store_const', const=True,
-            help="Have a timestamp with each logged message.")
-        self.argvParser.add_argument('--no-log-timestamp', '--no-log-ts', dest='log_ts', action='store_const', const=False)
+        self.argvParser.add_argument('--log-level', dest='loggingLevel', default=None,
+            choices=self.loggingLevelNames,
+            help="Set the minimum log level for messages to be logged."
+                " (The default is to use module logging's default, which should be WARNING.)")
+
+        self.argvParser.add_argument('--log-timestamp', '--log-ts', dest='log_ts',
+            default=self.loggingHaveTime, action='store_const', const=True,
+            help="Have a timestamp with each logged message." +
+                (" " + BOOL_DEFAULT_MSG if self.loggingHaveTime else ""))
+        self.argvParser.add_argument('--no-log-timestamp', '--no-log-ts', dest='log_ts',
+            action='store_const', const=False,
+            help=("" if self.loggingHaveTime else BOOL_DEFAULT_MSG))
 
     def runArgvParser(self):
         if self.argvParser is None:
