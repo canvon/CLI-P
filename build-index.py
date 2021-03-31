@@ -12,7 +12,7 @@ from PIL import Image
 
 import main_helper
 import database
-from faces import get_faces as get_face_embeddings, load_arcface
+from faces import get_faces as get_face_embeddings
 
 loggerName = main_helper.getLoggerName(name=__name__, package=__package__, file=__file__)
 logger = logging.getLogger(loggerName)
@@ -118,7 +118,6 @@ class Scanner:
 
 
         self.loaded_clip_model = False
-        self.loaded_arcface_model = False
 
         self.db = database.get(path_prefix=self.path_prefix, pack_type=self.pack_type)
 
@@ -137,20 +136,6 @@ class Scanner:
 
         load_time = time.perf_counter() - load_start
         logger.debug("Finished loading CLIP model after %fs.", load_time)
-
-    def load_arcface_model(self):
-        if self.loaded_arcface_model:
-            return
-        if self.dry_run:
-            logger.warning("Loading arcface model during dry run... This should not happen!")
-        logger.info("Loading arcface model...")
-        load_start = time.perf_counter()
-
-        load_arcface()
-        self.loaded_arcface_model = True
-
-        load_time = time.perf_counter() - load_start
-        logger.debug("Finished loading arcface model after %fs.", load_time)
 
     @torch.no_grad()
     def clip_file(self, fn):
@@ -194,7 +179,6 @@ class Scanner:
             else:
                 idx = self.db.get_fn_idx(tfn)
             if not faces_done:
-                self.load_arcface_model()
                 annotations = get_face_embeddings(image=rgb)
                 self.db.put_faces(idx, annotations)
             return True

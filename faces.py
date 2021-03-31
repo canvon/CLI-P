@@ -1,10 +1,12 @@
 import os
 import sys
 import time
+import logging
 import warnings
 import numpy as np
 import cv2
-from torch_device import device
+import models_store  # (imports torch_device)
+from torch_device import device as default_device
 import torch
 import torchvision.ops
 import xdg.BaseDirectory
@@ -12,26 +14,52 @@ from torchvision import transforms
 from retinaface.pre_trained_models import get_model
 from align_faces import warp_and_crop_face
 import align_faces
+import main_helper
 
-model = None
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    if device == 'cpu':
-        model = get_model("resnet50_2020-07-20", max_size=720, device=device)
-    else:
-        model = get_model("resnet50_2020-07-20", max_size=1400, device=device)
-model.eval()
+loggerName = main_helper.getLoggerName(name=__name__, package=__package__, file=__file__)
+logger = logging.getLogger(loggerName)
 
-face_model = None
+def load_resnet(device=default_device):
+    logger.info("Loading resnet model...")
+    load_start = time.perf_counter()
+
+    model = None
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        if device == 'cpu':
+            model = get_model("resnet50_2020-07-20", max_size=720, device=device)
+        else:
+            model = get_model("resnet50_2020-07-20", max_size=1400, device=device)
+    model.eval()
+
+    load_time = time.perf_counter() - load_start
+    logger.debug("Finished loading resnet model after %fs.", load_time)
+
+    return model
+
+RESNET_MODEL_KEY = "resnet"
+store_resnet_model = models_store.store.register_lazy_or_getitem(RESNET_MODEL_KEY, load_resnet)
+
 face_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
-def load_arcface():
-    global face_model
+def load_arcface(device=default_device):
+    logger.info("Loading arcface model...")
+    load_start = time.perf_counter()
+
+    face_model = None
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         checkpoint = torch.load(os.path.join(xdg.BaseDirectory.xdg_cache_home, "InsightFace-v2", "BEST_checkpoint_r101.tar"), map_location=torch.device(device))
         face_model = checkpoint['model'].module.to(device)
         face_model.device = device
-        face_model.eval()
+    face_model.eval()
+
+    load_time = time.perf_counter() - load_start
+    logger.debug("Finished loading arcface model after %fs.", load_time)
+
+    return face_model
+
+ARCFACE_MODEL_KEY = "arcface"
+store_arcface_model = models_store.store.register_lazy_or_getitem(ARCFACE_MODEL_KEY, load_arcface)
 
 # image needs to be RGB not BGR
 def embed_faces(annotations, filename=None, image=None):
@@ -46,6 +74,8 @@ def embed_faces(annotations, filename=None, image=None):
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         if image is None:
             return False
+        face_model = store_arcface_model.get()
+        device = store_arcface_model.loaded_device
         images = torch.zeros(len(annotations), 3, 112, 112).to(device)
         for i, annotation in enumerate(annotations):
             face = warp_and_crop_face(image, annotation['landmarks'], reference_pts=align_faces.REFERENCE_FACIAL_POINTS_112, crop_size=(112,112))
@@ -117,6 +147,7 @@ def get_faces(filename=None, image=None):
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         if image is None:
             return []
+        model = store_resnet_model.get()
         annotations = model.predict_jsons(image, nms_threshold=0.25, confidence_threshold=0.85)
         if len(annotations) < 1 or len(annotations[0]['bbox']) != 4 or len(annotations) > 500:
             return []
@@ -136,7 +167,7 @@ def get_faces(filename=None, image=None):
         return valid_annotations
 
 if __name__ == "__main__":
-    load_arcface()
+    store_arcface_model.get()
     for filename in sys.argv[1:]:
         process_start = time.perf_counter()
         annotations = get_faces(filename)
