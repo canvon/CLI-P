@@ -1,14 +1,9 @@
 import time
-import os
-import os.path
 from pathlib import Path
-import sys
 import re
 import enum
 import numpy as np
-import lmdb
 import models_store  # (imports torch_device)
-import torch
 import clip
 import faiss
 from PIL import Image, ExifTags
@@ -445,7 +440,7 @@ class Search:
                 self.offset = -1
                 self.last_j = -1
                 print(f"Showing tag {tag}:")
-                print(f"Image\tFace")
+                print("Image\tFace")
                 for result, _ in self.results:
                     print(f"{result[0]}\t{result[1]}")
                 self.search_mode = SearchMode.NONE_NOSKIP
@@ -463,7 +458,7 @@ class Search:
                     filename = self.db.get_fix_idx_filename(image_id)
                     annotations = self.db.get_faces(self.db.i2b(image_id))
                     print(f"Showing {filename}:")
-                    print(f"Image\tFace\tTag\tBounding box")
+                    print("Image\tFace\tTag\tBounding box")
                     for i, annotation in enumerate(annotations):
                         tag = self.cfg.get_face_tag(annotation, self.face_threshold, self.cluster_mode)
                         print(f"{image_id}\t{i}\t{tag}\t{annotation['bbox']}")

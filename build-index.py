@@ -282,13 +282,13 @@ class Scanner:
                     if self.faces:
                         faces_array = np.zeros((nd, 512))
                     images = np.zeros((nd, 512))
-                    print(f"Preparing indexes...")
+                    print("Preparing indexes...")
                     quantizer = faiss.IndexFlatIP(512)
                     index = faiss.IndexIVFFlat(quantizer, 512, self.clusters, faiss.METRIC_INNER_PRODUCT)
                     if self.faces:
                         faces_quantizer = faiss.IndexFlatIP(512)
                         faces_index = faiss.IndexIVFFlat(faces_quantizer, 512, self.clusters, faiss.METRIC_INNER_PRODUCT)
-                    print(f"Generating matrix...")
+                    print("Generating matrix...")
                     for fn_hash, fix_idx in cursor:
                         fn = txn.get(fix_idx + b'n').decode()
                         skip = False
@@ -310,7 +310,7 @@ class Scanner:
                                 print(f"Training index {images.shape}...")
                                 index.train(images)
                                 need_training = False
-                            print(f"Adding to index...")
+                            print("Adding to index...")
                             index.add(images)
                             images = np.zeros((nd, 512))
                         if self.faces:
@@ -327,7 +327,7 @@ class Scanner:
                                         print(f"Training faces index {faces_array.shape}...")
                                         faces_index.train(faces_array)
                                         faces_need_training = False
-                                    print(f"Adding to faces index...")
+                                    print("Adding to faces index...")
                                     faces_index.add(faces_array)
                                     faces_array = np.zeros((nd, 512))
                     if count > 0:
@@ -335,23 +335,23 @@ class Scanner:
                         if need_training:
                             print(f"Training index {images.shape}...")
                             index.train(images)
-                        print(f"Adding to index...")
+                        print("Adding to index...")
                         index.add(images)
                     if faces_count > 0:
                         faces_array = faces_array[0:faces_count].astype('float32')
                         if faces_need_training:
                             print(f"Training faces index {faces_array.shape}...")
                             faces_index.train(faces_array)
-                        print(f"Adding to faces index...")
+                        print("Adding to faces index...")
                         faces_index.add(faces_array)
-                    print(f"Saving index...")
+                    print("Saving index...")
                     faiss.write_index(index, str(self.path_prefix / "images.index"))
                     if faces:
-                        print(f"Saving faces index...")
+                        print("Saving faces index...")
                         faiss.write_index(faces_index, str(self.path_prefix / "faces.index"))
 
         print(f"Indexed {i} images and {faces_i} faces.")
-        print(f"Done!")
+        print("Done!")
 
     def run(self, *base_paths):
         if self.dry_run:
@@ -359,7 +359,7 @@ class Scanner:
         try:
             self.clip_paths(*base_paths)
         except KeyboardInterrupt:
-            print(f"Interrupted!")
+            print("Interrupted!")
 
         self.index_images()
 

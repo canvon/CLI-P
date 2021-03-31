@@ -21,7 +21,7 @@ from PyQt5.QtWidgets import (
     qApp,
     QApplication, QMainWindow, QWidget,
     QSizePolicy,
-    QHBoxLayout, QVBoxLayout, QScrollBar, QTabWidget, QToolBar,
+    QHBoxLayout, QVBoxLayout, QTabWidget, QToolBar,
     QComboBox, QLabel, QPushButton, QTextEdit,
     QTableView,
 )

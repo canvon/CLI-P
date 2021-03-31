@@ -3,7 +3,6 @@ import sys
 import time
 import logging
 import warnings
-import numpy as np
 import cv2
 import models_store  # (imports torch_device)
 from torch_device import device as default_device
