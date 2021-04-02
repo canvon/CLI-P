@@ -222,7 +222,7 @@ class MainWindow(QMainWindow):
 
     def loadModules(self):
         global query_index
-        if query_index == None:
+        if query_index is None:
             self.appendSearchOutput("Loading query-index...")
             qApp.processEvents()
             loadStart = time.perf_counter()
@@ -230,7 +230,7 @@ class MainWindow(QMainWindow):
             loadTime = time.perf_counter() - loadStart
             self.appendSearchOutput(f"Loaded query-index: {loadTime:.4f}s")
             qApp.processEvents()
-        if self.search == None:
+        if self.search is None:
             self.appendSearchOutput("Instantiating search...")
             qApp.processEvents()
             instantiateStart = time.perf_counter()
@@ -251,7 +251,7 @@ class MainWindow(QMainWindow):
 
     def appendSearchOutput(self, lines):
         # Skip calls with nothing to convey.
-        if lines == None or lines == "":
+        if lines is None or lines == "":
             return
         # Strip last newline, but only that.
         # That way, an empty line at the end
@@ -275,7 +275,7 @@ class MainWindow(QMainWindow):
         storedText = None if inputIndex == -1 else self.searchInput.itemText(inputIndex)
 
         search = self.search
-        if search == None:
+        if search is None:
             self.appendSearchOutput("Search not ready, yet...")
             return
         self.appendSearchOutput(">>> " + inputText)
