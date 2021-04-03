@@ -706,9 +706,11 @@ class Search:
             j += 1
             yield result
 
-    def prepare_image(self, result, max_res=None):
+    def prepare_image(self, result, *, max_res=None, show_faces=None):
         if max_res is None:
             max_res = self.max_res
+        if show_faces is None:
+            show_faces = self.show_faces
         image = cv2.imread(result.tfn, cv2.IMREAD_COLOR)
         if image is None or image.shape[0] < 2:
             return None
@@ -730,7 +732,7 @@ class Search:
                 scale *= factor
             if need_resize:
                 image = cv2.resize(image, (int(w + 0.5), int(h + 0.5)), interpolation=cv2.INTER_LANCZOS4)
-        if self.show_faces:
+        if show_faces:
             pillow_image = Image.open(result.tfn)
             exif_data = pillow_image._getexif()
             exif_orientation = None

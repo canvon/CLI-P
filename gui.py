@@ -384,7 +384,7 @@ class MainWindow(QMainWindow):
         try:
             size = self.imageLabel.maximumSize()
             max_res = (size.width(), size.height())
-            image = self.search.prepare_image(result, max_res)
+            image = self.search.prepare_image(result, max_res=max_res)
             if image is None:
                 raise RuntimeError("No image.")
         except Exception as ex:
