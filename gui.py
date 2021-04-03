@@ -23,7 +23,7 @@ from PyQt5.QtWidgets import (
     QSizePolicy,
     QHBoxLayout, QVBoxLayout, QTabWidget, QToolBar,
     QComboBox, QLabel, QPushButton, QTextEdit,
-    QTableView,
+    QListView, QTableView,
 )
 
 # Load delayed, so the GUI is already visible,
@@ -146,6 +146,19 @@ class MainWindow(QMainWindow):
         imagesVBox.addWidget(self.imageLabel)
         imagesVBox.addWidget(self.imagesTableView)
         self.tabWidget.addTab(self.imagesTabPage, "&2 Images")
+
+
+        # Page 3: Thumbnails
+        self.thumbnailsTabPage = QWidget()
+        thumbnailsVBox = QVBoxLayout(self.thumbnailsTabPage)
+
+        self.thumbnailsListView = QListView()
+        self.thumbnailsListView.setEditTriggers(QListView.NoEditTriggers)
+        self.thumbnailsListView.setViewMode(QListView.IconMode)
+        self.thumbnailsListView.activated.connect(self.thumbnailsActivated)
+
+        thumbnailsVBox.addWidget(self.thumbnailsListView)
+        self.tabWidget.addTab(self.thumbnailsTabPage, "&3 Thumbnails")
 
 
         self.searchHint = QLabel()
@@ -325,6 +338,8 @@ class MainWindow(QMainWindow):
         self.searchResultsModel = model
         self.imagesTableView.setModel(model)
         self.imagesTableView.horizontalHeader().setStretchLastSection(True)
+        self.thumbnailsListView.setModel(model)
+        self.thumbnailsListView.setModelColumn(1)  # fix_idx + thumbnail
 
     def clearSearchResultsModel(self):
         self.searchResultSelected = None
@@ -386,6 +401,14 @@ class MainWindow(QMainWindow):
     def searchResultsActivated(self, index):
         result = index.data(Qt.UserRole + 1)
         self.showSearchResult(result, force=True)
+
+    def thumbnailsActivated(self):
+        curIndex = self.thumbnailsListView.selectionModel().currentIndex()
+        if not curIndex.isValid():
+            return
+        self.tabWidget.setCurrentWidget(self.imagesTabPage)
+        self.imagesTableView.selectionModel().setCurrentIndex(curIndex, QItemSelectionModel.SelectCurrent)
+        self.searchResultsActivated(curIndex)
 
     def showSearchResult(self, result, force=False):
         if not force and self.searchResultSelected is result:
