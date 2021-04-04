@@ -7,11 +7,12 @@ import time
 from io import StringIO
 import contextlib
 from pathlib import Path
+import collections
 
 from PyQt5.QtCore import (
     pyqtSignal, pyqtSlot,
     Qt,
-    QObject, QThread,
+    QMetaObject, QObject, QThread,
     QSize,
     QItemSelectionModel, QIdentityProxyModel,
     QTimer,
@@ -51,6 +52,8 @@ class ImagesWorker(QObject):
         super().__init__(parent)
         self._largeSize = largeSize
         self._smallSize = smallSize
+        self._queue = collections.deque()
+        self._timerWrapped = None
 
     def largeSize(self):
         return self._largeSize
@@ -61,8 +64,33 @@ class ImagesWorker(QObject):
     def setSmallSize(self, size):
         self._smallSize = size
 
+    def _timer(self):
+        if self._timerWrapped is None:
+            # Zero-second timer, after starting it will run continously after any events have been processed.
+            self._timerWrapped = QTimer(self)
+            self._timerWrapped.timeout.connect(self._doLoadImage)
+        return self._timerWrapped
+
     @pyqtSlot(int, str)
     def loadImage(self, fix_idx, tfn):
+        self._queue.appendleft((fix_idx, tfn))
+        timer = self._timer()
+        if not timer.isActive():
+            timer.start()
+
+    @pyqtSlot()
+    def clearQueue(self):
+        self._queue.clear()
+        timer = self._timer()
+        if timer.isActive():
+            timer.stop()
+
+    @pyqtSlot()
+    def _doLoadImage(self):
+        if len(self._queue) == 0:
+            self._timer().stop()
+            return
+        fix_idx, tfn = self._queue.pop()
         imageCv2 = None
         try:
             imageCv2, _ = query_index.Search.load_image(tfn=tfn, max_res=None)
@@ -448,13 +476,19 @@ class MainWindow(QMainWindow):
 
     def clearSearchResultsModel(self):
         self.searchResultSelected = None
+        # Avoid uselessly generating thumbnails that will never be seen.
+        QMetaObject.invokeMethod(self.imagesWorker, 'clearQueue', Qt.BlockingQueuedConnection)
+        # Avoid stale thumbnails in future search results.
+        self.searchResultsThumbnailsProxyModel.clearCache()
+        #
+        # Clear the search results model itself.
         #
         # Don't use clear(), as that will get rid of the header labels
         # and column count, too...
         #self.searchResultsModel.clear()
         self.searchResultsModel.setRowCount(0)
-        self.searchResultsThumbnailsProxyModel.clearCache()
         #
+        # Stop displaying a previous search'es result image.
         self.imageLabel.clear()
 
     def prepareSearchResultsModelEntry(self, result):
