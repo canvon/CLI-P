@@ -106,9 +106,9 @@ class ImagesWorker(QObject):
         if imageQt is None:
             return
         self.imageLoaded.emit(fix_idx, tfn, imageQt)
-        largeThumbnail = imageQt.scaled(QSize(self._largeSize, self._largeSize))
+        largeThumbnail = imageQt.scaled(QSize(self._largeSize, self._largeSize), Qt.KeepAspectRatio)
         self.largeThumbnailReady.emit(fix_idx, tfn, largeThumbnail)
-        smallThumbnail = imageQt.scaled(QSize(self._smallSize, self._smallSize))
+        smallThumbnail = imageQt.scaled(QSize(self._smallSize, self._smallSize), Qt.KeepAspectRatio)
         self.smallThumbnailReady.emit(fix_idx, tfn, smallThumbnail)
 
 class HistoryComboBox(QComboBox):
@@ -412,15 +412,20 @@ class MainWindow(QMainWindow):
             super().__init__(parent=parent)
             self._mainWindow = mainWindow
             self._thumbnails = {}
+            self._tempPixmap = None
         def mainWindow(self):
             return self._mainWindow
+        def tempPixmap(self):
+            return self._tempPixmap
+        def setTempPixmap(self, pixmap):
+            self._tempPixmap = pixmap
         def clearCache(self):
             self._thumbnails.clear()
         def thumbnail(self, row, result=None):
             """Get thumbnail; if not already cached, use parameter result as info for placing a request for asynchronous loading."""
             if row not in self._thumbnails:
                 self._mainWindow.imageToLoad.emit(result.fix_idx, result.tfn)
-                return None
+                return self._tempPixmap
             return self._thumbnails[row]
         def setThumbnail(self, row, thumbnail):
             """Set (override potentially already cached) thumbnail."""
@@ -480,6 +485,16 @@ class MainWindow(QMainWindow):
         self.imagesWorkerThread = QThread()
         self.imagesWorkerThread.setObjectName("ImagesWorkerThread")
         self.imagesWorker = ImagesWorker()
+        #
+        ## This is not perfect but we need to avoid the icon view bugging out and overlaying the images...
+        #largeSize = self.imagesWorker.largeSize()
+        #largeSquare = QSize(largeSize, largeSize)
+        ##self.thumbnailsListView.setIconSize(largeSquare)  # This doesn't seem to help.
+        #tempImage = QImage(largeSquare, QImage.Format_RGB888)
+        ##tempImage.fill(Qt.lightGray)  # This would make the Qt-side buggy icon refreshing user-visible. :/
+        #tempImage.fill(Qt.white)
+        #thumbsModel.setTempPixmap(QPixmap.fromImage(tempImage))
+        #
         self.imagesWorker.moveToThread(self.imagesWorkerThread)
         self.imageToLoad.connect(self.imagesWorker.loadImage)
         self.imagesWorker.logMessage.connect(self.appendSearchOutput)
@@ -515,12 +530,16 @@ class MainWindow(QMainWindow):
         return items
 
     def handleLargeThumbnail(self, fix_idx, tfn, imageQt):
-        self._handleThumbnail(self.searchResultsThumbnailsProxyModel, fix_idx, tfn, imageQt)
+        update = self._handleThumbnail(self.searchResultsThumbnailsProxyModel, fix_idx, tfn, imageQt)
+        if update:
+            # Reflow... Needed to avoid rendering bugs.
+            self.thumbnailsListView.setFlow(self.thumbnailsListView.flow())
 
     def handleSmallThumbnail(self, fix_idx, tfn, imageQt):
         self._handleThumbnail(self.searchResultsModel, fix_idx, tfn, imageQt)
 
     def _handleThumbnail(self, model, fix_idx, tfn, imageQt):
+        update = False
         for row in range(model.rowCount()):
             column = 1
             modelIndex = model.index(row, column)
@@ -533,8 +552,10 @@ class MainWindow(QMainWindow):
                 continue
             # (Check the filename, too?)
             #
+            update = True
             model.setData(modelIndex, QPixmap.fromImage(imageQt), Qt.DecorationRole)
             # Continue search in case we have duplicate results (e.g., from the `l` command).
+        return update
 
     def appendToSearchResultsModel(self, result):
         model = self.searchResultsModel
