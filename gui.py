@@ -73,6 +73,11 @@ class ImagesWorker(QObject):
 
     @pyqtSlot(int, str)
     def loadImage(self, fix_idx, tfn):
+        # Check if already queued.
+        for other_fix_idx, other_tfn in self._queue:
+            if other_fix_idx == fix_idx and other_tfn == tfn:
+                return
+        # Otherwise, queue now & process later.
         self._queue.appendleft((fix_idx, tfn))
         timer = self._timer()
         if not timer.isActive():
