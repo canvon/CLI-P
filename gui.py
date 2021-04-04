@@ -514,14 +514,15 @@ class MainWindow(QMainWindow):
         self.imagesWorkerThread.setObjectName("ImagesWorkerThread")
         self.imagesWorker = ImagesWorker()
         #
-        ## This is not perfect but we need to avoid the icon view bugging out and overlaying the images...
-        #largeSize = self.imagesWorker.largeSize()
-        #largeSquare = QSize(largeSize, largeSize)
-        ##self.thumbnailsListView.setIconSize(largeSquare)  # This doesn't seem to help.
-        #tempImage = QImage(largeSquare, QImage.Format_RGB888)
-        ##tempImage.fill(Qt.lightGray)  # This would make the Qt-side buggy icon refreshing user-visible. :/
-        #tempImage.fill(Qt.white)
-        #thumbsModel.setTempPixmap(QPixmap.fromImage(tempImage))
+        # Try to avoid the situation that "all" results fit on the screen
+        # on Thumbnails tab at once while they have no icon, yet,
+        # so are just a tiny piece of text...
+        largeSize = self.imagesWorker.largeSize()
+        largeSquare = QSize(largeSize, largeSize)
+        #self.thumbnailsListView.setIconSize(largeSquare)  # This doesn't seem to help.
+        tempImage = QImage(largeSquare, QImage.Format_RGB888)
+        tempImage.fill(Qt.lightGray)
+        thumbsModel.setTempPixmap(QPixmap.fromImage(tempImage))
         #
         self.imagesWorker.moveToThread(self.imagesWorkerThread)
         self.imageToLoad.connect(self.imagesWorker.loadImage)
