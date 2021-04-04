@@ -450,7 +450,15 @@ class MainWindow(QMainWindow):
                 index.column() == 1 and
                 role is not None and
                 role == Qt.DecorationRole):
-                raise RuntimeError(f"Invalid use of {type(self).__name__}.setData(), with index={index!r}, data={data!r}, role={role!r}")
+                # Reject update.
+                indexInfo = None
+                if index.isValid():
+                    indexInfo = {
+                        'row': index.row(),
+                        'column': index.column(),
+                        'hasParent': index.parent().isValid(),
+                    }
+                raise RuntimeError(f"Invalid use of {type(self).__name__}.setData(), with indexInfo={indexInfo!r}, data={data!r}, role={role!r}")
             self.setThumbnail(index.row(), data)
             self.dataChanged.emit(index, index, [role])
 
