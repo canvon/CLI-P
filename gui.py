@@ -9,8 +9,10 @@ import contextlib
 from pathlib import Path
 
 from PyQt5.QtCore import (
-    pyqtSignal,
+    pyqtSignal, pyqtSlot,
     Qt,
+    QObject, QThread,
+    QSize,
     QItemSelectionModel, QIdentityProxyModel,
     QTimer,
 )
@@ -38,6 +40,48 @@ def imageFromOpenCV(image):
     if image is None:
         raise TypeError("OpenCV image argument required")
     return QImage(image.data, image.shape[1], image.shape[0], 3 * image.shape[1], QImage.Format_RGB888).rgbSwapped()
+
+class ImagesWorker(QObject):
+    imageLoaded = pyqtSignal(int, str, QImage)
+    largeThumbnailReady = pyqtSignal(int, str, QImage)
+    smallThumbnailReady = pyqtSignal(int, str, QImage)
+    logMessage = pyqtSignal(str)
+
+    def __init__(self, largeSize=180, smallSize=24, parent=None):
+        super().__init__(parent)
+        self._largeSize = largeSize
+        self._smallSize = smallSize
+
+    def largeSize(self):
+        return self._largeSize
+    def setLargeSize(self, size):
+        self._largeSize = size
+    def smallSize(self):
+        return self._smallSize
+    def setSmallSize(self, size):
+        self._smallSize = size
+
+    @pyqtSlot(int, str)
+    def loadImage(self, fix_idx, tfn):
+        imageCv2 = None
+        try:
+            imageCv2, _ = query_index.Search.load_image(tfn=tfn, max_res=None)
+        except Exception as ex:
+            self.logMessage.emit(f"Got exception {type(ex).__name__} loading image: {ex}")
+        if imageCv2 is None:
+            return
+        imageQt = None
+        try:
+            imageQt = imageFromOpenCV(imageCv2)
+        except Exception as ex:
+            self.logMessage.emit(f"Got exception {type(ex).__name__} converting image: {ex}")
+        if imageQt is None:
+            return
+        self.imageLoaded.emit(fix_idx, tfn, imageQt)
+        largeThumbnail = imageQt.scaled(QSize(self._largeSize, self._largeSize))
+        self.largeThumbnailReady.emit(fix_idx, tfn, largeThumbnail)
+        smallThumbnail = imageQt.scaled(QSize(self._smallSize, self._smallSize))
+        self.smallThumbnailReady.emit(fix_idx, tfn, smallThumbnail)
 
 class HistoryComboBox(QComboBox):
     pageChangeRequested = pyqtSignal(bool)
@@ -99,6 +143,8 @@ class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
 
+        self.imagesWorker = None
+        self.imagesWorkerThread = None
         self.search = None
         self.searchResultSelected = None
 
@@ -375,6 +421,8 @@ class MainWindow(QMainWindow):
                 # define this proxy model's column's meaning fully ourselves!
                 return None
 
+    imageToLoad = pyqtSignal(int, str)
+
     def createSearchResultsModel(self):
         model = QStandardItemModel(0, 4)
         model.setHorizontalHeaderLabels(["score", "fix_idx", "face_id", "filename"])
@@ -386,6 +434,17 @@ class MainWindow(QMainWindow):
         self.searchResultsThumbnailsProxyModel = thumbsModel
         self.thumbnailsListView.setModel(thumbsModel)
         self.thumbnailsListView.setModelColumn(1)  # fix_idx + thumbnail
+
+        # Prepare for asynchronous thumbnail loading...
+        self.imagesWorkerThread = QThread()
+        self.imagesWorkerThread.setObjectName("ImagesWorkerThread")
+        self.imagesWorker = ImagesWorker()
+        self.imagesWorker.moveToThread(self.imagesWorkerThread)
+        self.imageToLoad.connect(self.imagesWorker.loadImage)
+        self.imagesWorker.logMessage.connect(self.appendSearchOutput)
+        # FIXME: self.imagesWorker.largeThumbnailReady.connect(self.handleLargeThumbnail)
+        self.imagesWorker.smallThumbnailReady.connect(self.handleSmallThumbnail)
+        self.imagesWorkerThread.start()
 
     def clearSearchResultsModel(self):
         self.searchResultSelected = None
@@ -401,12 +460,6 @@ class MainWindow(QMainWindow):
     def prepareSearchResultsModelEntry(self, result):
         scoreItem  = QStandardItem(str(result.score))
         fixIdxItem = QStandardItem(str(result.fix_idx))
-        try:
-            fixIdxItem.setData(self.getThumbnail(result, size=(24, 24)), Qt.DecorationRole)
-        except Exception:
-            # Ignore thumb-nail exceptions, they could easily swamp the logs.
-            # Log when displaying as large image, instead. Or log with level DEBUG, maybe.
-            pass
         faceIdItem = QStandardItem(str(result.face_id))
         tfnItem    = QStandardItem(str(result.tfn))
         items = [scoreItem, fixIdxItem, faceIdItem, tfnItem]
@@ -414,11 +467,29 @@ class MainWindow(QMainWindow):
             item.setData(result)
         return items
 
+    def handleSmallThumbnail(self, fix_idx, tfn, imageQt):
+        model = self.searchResultsModel
+        for row in range(model.rowCount()):
+            column = 1
+            modelIndex = model.index(row, column)
+            if not modelIndex.isValid():
+                continue
+            result = modelIndex.data(Qt.UserRole + 1)
+            if result is None:
+                continue
+            if result.fix_idx != fix_idx:
+                continue
+            # (Check the filename, too?)
+            #
+            model.setData(modelIndex, QPixmap.fromImage(imageQt), Qt.DecorationRole)
+            # Continue search in case we have duplicate results (e.g., from the `l` command).
+
     def appendToSearchResultsModel(self, result):
         model = self.searchResultsModel
         items = self.prepareSearchResultsModelEntry(result)
         result.gui_rowOffset = model.rowCount()
         model.appendRow(items)
+        self.imageToLoad.emit(result.fix_idx, result.tfn)
 
     def recreateSearchResultsModelRow(self, result):
         search = self.search
@@ -443,6 +514,7 @@ class MainWindow(QMainWindow):
         items = self.prepareSearchResultsModelEntry(recreatedResult)
         for columnOffset in range(model.columnCount()):
             model.setItem(rowOffset, columnOffset, items[columnOffset])
+        self.imageToLoad.emit(recreatedResult.fix_idx, recreatedResult.tfn)
         return recreatedResult
 
     def searchResultsActivated(self, index):
