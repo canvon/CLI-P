@@ -6,11 +6,12 @@ import sys
 import time
 from io import StringIO
 import contextlib
+from pathlib import Path
 
 from PyQt5.QtCore import (
     pyqtSignal,
     Qt,
-    QItemSelectionModel,
+    QItemSelectionModel, QIdentityProxyModel,
     QTimer,
 )
 from PyQt5.QtGui import (
@@ -332,13 +333,58 @@ class MainWindow(QMainWindow):
             view.selectionModel().setCurrentIndex(nextIndex, QItemSelectionModel.SelectCurrent)
             self.searchResultsActivated(nextIndex)
 
+    class ThumbnailsProxyModel(QIdentityProxyModel):
+        def __init__(self, iconSize=180, mainWindow=None, parent=None):
+            super().__init__(parent=parent)
+            self._iconSize = iconSize
+            self._mainWindow = mainWindow
+            self._thumbnails = {}
+        def iconSize(self):
+            return self._iconSize
+        def setIconSize(self, iconSize):
+            self._iconSize = iconSize
+            self.clearCache()
+        def mainWindow(self):
+            return self._mainWindow
+        def clearCache(self):
+            self._thumbnails.clear()
+        def thumbnail(self, row, result=None):
+            """Get thumbnail; if not already cached, use parameter result as source."""
+            if row not in self._thumbnails:
+                self._thumbnails[row] = self._mainWindow.getThumbnail(result, size=(self._iconSize, self._iconSize))
+            return self._thumbnails[row]
+        def setThumbnail(self, row, thumbnail):
+            """Set (override potentially already cached) thumbnail."""
+            self._thumbnails[row] = thumbnail
+        def data(self, index, role):
+            """Overridden proxy model data() which overlays column 1 (fix_idx + thumbnail) data."""
+            if index.parent().isValid() or index.column() != 1:  # fix_idx + thumbnail
+                return super().data(index, role)
+            row = index.row()
+            result = super().data(index, Qt.UserRole + 1)
+            if role == Qt.UserRole + 1:
+                return result
+            elif role == Qt.DisplayRole:
+                # Overlay single-string rendering of result.
+                return "(result missing)" if result is None else f"{result.fix_idx}: {Path(result.tfn).name}"
+            elif role == Qt.DecorationRole:
+                # Overlay a larger thumbnail/icon, which potentially has already been cached...
+                return None if result is None else self.thumbnail(row, result)
+            else:
+                # We could try to pass more things through, but let's rather
+                # define this proxy model's column's meaning fully ourselves!
+                return None
+
     def createSearchResultsModel(self):
         model = QStandardItemModel(0, 4)
         model.setHorizontalHeaderLabels(["score", "fix_idx", "face_id", "filename"])
         self.searchResultsModel = model
         self.imagesTableView.setModel(model)
         self.imagesTableView.horizontalHeader().setStretchLastSection(True)
-        self.thumbnailsListView.setModel(model)
+        thumbsModel = self.ThumbnailsProxyModel(mainWindow=self)
+        thumbsModel.setSourceModel(model)
+        self.searchResultsThumbnailsProxyModel = thumbsModel
+        self.thumbnailsListView.setModel(thumbsModel)
         self.thumbnailsListView.setModelColumn(1)  # fix_idx + thumbnail
 
     def clearSearchResultsModel(self):
@@ -348,6 +394,7 @@ class MainWindow(QMainWindow):
         # and column count, too...
         #self.searchResultsModel.clear()
         self.searchResultsModel.setRowCount(0)
+        self.searchResultsThumbnailsProxyModel.clearCache()
         #
         self.imageLabel.clear()
 
