@@ -408,24 +408,19 @@ class MainWindow(QMainWindow):
             self.searchResultsActivated(nextIndex)
 
     class ThumbnailsProxyModel(QIdentityProxyModel):
-        def __init__(self, iconSize=180, mainWindow=None, parent=None):
+        def __init__(self, mainWindow=None, parent=None):
             super().__init__(parent=parent)
-            self._iconSize = iconSize
             self._mainWindow = mainWindow
             self._thumbnails = {}
-        def iconSize(self):
-            return self._iconSize
-        def setIconSize(self, iconSize):
-            self._iconSize = iconSize
-            self.clearCache()
         def mainWindow(self):
             return self._mainWindow
         def clearCache(self):
             self._thumbnails.clear()
         def thumbnail(self, row, result=None):
-            """Get thumbnail; if not already cached, use parameter result as source."""
+            """Get thumbnail; if not already cached, use parameter result as info for placing a request for asynchronous loading."""
             if row not in self._thumbnails:
-                self._thumbnails[row] = self._mainWindow.getThumbnail(result, size=(self._iconSize, self._iconSize))
+                self._mainWindow.imageToLoad.emit(result.fix_idx, result.tfn)
+                return None
             return self._thumbnails[row]
         def setThumbnail(self, row, thumbnail):
             """Set (override potentially already cached) thumbnail."""
@@ -448,6 +443,16 @@ class MainWindow(QMainWindow):
                 # We could try to pass more things through, but let's rather
                 # define this proxy model's column's meaning fully ourselves!
                 return None
+        def setData(self, index, data, role):
+            if not (
+                index is not None and
+                index.isValid() and
+                index.column() == 1 and
+                role is not None and
+                role == Qt.DecorationRole):
+                raise RuntimeError(f"Invalid use of {type(self).__name__}.setData(), with index={index!r}, data={data!r}, role={role!r}")
+            self.setThumbnail(index.row(), data)
+            self.dataChanged.emit(index, index, [role])
 
     imageToLoad = pyqtSignal(int, str)
 
@@ -470,7 +475,7 @@ class MainWindow(QMainWindow):
         self.imagesWorker.moveToThread(self.imagesWorkerThread)
         self.imageToLoad.connect(self.imagesWorker.loadImage)
         self.imagesWorker.logMessage.connect(self.appendSearchOutput)
-        # FIXME: self.imagesWorker.largeThumbnailReady.connect(self.handleLargeThumbnail)
+        self.imagesWorker.largeThumbnailReady.connect(self.handleLargeThumbnail)
         self.imagesWorker.smallThumbnailReady.connect(self.handleSmallThumbnail)
         self.imagesWorkerThread.start()
 
@@ -501,8 +506,13 @@ class MainWindow(QMainWindow):
             item.setData(result)
         return items
 
+    def handleLargeThumbnail(self, fix_idx, tfn, imageQt):
+        self._handleThumbnail(self.searchResultsThumbnailsProxyModel, fix_idx, tfn, imageQt)
+
     def handleSmallThumbnail(self, fix_idx, tfn, imageQt):
-        model = self.searchResultsModel
+        self._handleThumbnail(self.searchResultsModel, fix_idx, tfn, imageQt)
+
+    def _handleThumbnail(self, model, fix_idx, tfn, imageQt):
         for row in range(model.rowCount()):
             column = 1
             modelIndex = model.index(row, column)
