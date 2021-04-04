@@ -407,6 +407,29 @@ class MainWindow(QMainWindow):
             view.selectionModel().setCurrentIndex(nextIndex, QItemSelectionModel.SelectCurrent)
             self.searchResultsActivated(nextIndex)
 
+    class SearchResultsModel(QStandardItemModel):
+        def __init__(self, rows, columns, *, mainWindow, parent=None):
+            super().__init__(rows, columns, parent)
+            self._mainWindow = mainWindow
+        def data(self, index, role):
+            superData = super().data(index, role)
+            if not (
+                index is not None and
+                index.isValid() and
+                index.column() == 1 and
+                role == Qt.DecorationRole):
+                # Only act ourselves on request for icon. Pass through everything else.
+                return superData
+            if superData is not None:
+                # Use existing icon.
+                return superData
+            # Request load thumbnail.
+            result = super().data(index, Qt.UserRole + 1)
+            if result is None:
+                return None
+            self._mainWindow.imageToLoad.emit(result.fix_idx, result.tfn)
+            return None
+
     class ThumbnailsProxyModel(QIdentityProxyModel):
         def __init__(self, mainWindow=None, parent=None):
             super().__init__(parent=parent)
@@ -470,7 +493,7 @@ class MainWindow(QMainWindow):
     imageToLoad = pyqtSignal(int, str)
 
     def createSearchResultsModel(self):
-        model = QStandardItemModel(0, 4)
+        model = self.SearchResultsModel(0, 4, mainWindow=self)
         model.setHorizontalHeaderLabels(["score", "fix_idx", "face_id", "filename"])
         self.searchResultsModel = model
         self.imagesTableView.setModel(model)
@@ -562,7 +585,6 @@ class MainWindow(QMainWindow):
         items = self.prepareSearchResultsModelEntry(result)
         result.gui_rowOffset = model.rowCount()
         model.appendRow(items)
-        self.imageToLoad.emit(result.fix_idx, result.tfn)
 
     def recreateSearchResultsModelRow(self, result):
         search = self.search
@@ -587,7 +609,6 @@ class MainWindow(QMainWindow):
         items = self.prepareSearchResultsModelEntry(recreatedResult)
         for columnOffset in range(model.columnCount()):
             model.setItem(rowOffset, columnOffset, items[columnOffset])
-        self.imageToLoad.emit(recreatedResult.fix_idx, recreatedResult.tfn)
         return recreatedResult
 
     def searchResultsActivated(self, index):
