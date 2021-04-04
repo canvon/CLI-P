@@ -706,14 +706,17 @@ class Search:
             j += 1
             yield result
 
-    def prepare_image(self, result, *, max_res=None, show_faces=None):
-        if max_res is None:
-            max_res = self.max_res
-        if show_faces is None:
-            show_faces = self.show_faces
-        image = cv2.imread(result.tfn, cv2.IMREAD_COLOR)
+    @classmethod
+    def load_image(cls, *, tfn, max_res):
+        """
+        Part of Search.prepare_image() that doesn't need access to
+        a Search instance or full Result record.
+
+        This may be used for thumbnail loading.
+        """
+        image = cv2.imread(tfn, cv2.IMREAD_COLOR)
         if image is None or image.shape[0] < 2:
-            return None
+            return None, None
         h, w, _ = image.shape
         scale = 1.0
         if max_res is not None:
@@ -732,6 +735,16 @@ class Search:
                 scale *= factor
             if need_resize:
                 image = cv2.resize(image, (int(w + 0.5), int(h + 0.5)), interpolation=cv2.INTER_LANCZOS4)
+        return image, scale
+
+    def prepare_image(self, result, *, max_res=None, show_faces=None):
+        if max_res is None:
+            max_res = self.max_res
+        if show_faces is None:
+            show_faces = self.show_faces
+        image, scale = self.load_image(tfn=result.tfn, max_res=max_res)
+        if image is None:
+            return None
         if show_faces:
             pillow_image = Image.open(result.tfn)
             exif_data = pillow_image._getexif()
