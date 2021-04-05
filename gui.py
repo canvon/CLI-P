@@ -511,7 +511,7 @@ class MainWindow(QMainWindow):
 
         # Prepare for asynchronous thumbnail loading...
         self.imagesWorkerThread = QThread()
-        self.imagesWorkerThread.setObjectName("ImagesWorkerThread")
+        self.imagesWorkerThread.setObjectName("ImagesWorker")
         self.imagesWorker = ImagesWorker()
         #
         # Try to avoid the situation that "all" results fit on the screen
