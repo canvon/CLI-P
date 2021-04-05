@@ -211,11 +211,17 @@ class MainWindow(QMainWindow):
         imagesVBox = QVBoxLayout(self.imagesTabPage)
 
         imgsToolBar = QToolBar()
+        actionAddTagBaseText = "Add to tag"
+        actionDelTagBaseText = "Del from tag"
+        actionAddTag = imgsToolBar.addAction(actionAddTagBaseText + " (&+)", self.imagesActionAddTagTriggered)
+        actionDelTag = imgsToolBar.addAction(actionDelTagBaseText + " (&-)", self.imagesActionDelTagTriggered)
+        actionAddTag.setShortcut("Ctrl+T")
+        actionDelTag.setShortcut("Ctrl+Shift+T")
+        actionAddTag.setIconText(f"{actionAddTagBaseText} ({actionAddTag.shortcut().toString()})")
+        actionDelTag.setIconText(f"{actionDelTagBaseText} ({actionDelTag.shortcut().toString()})")
         self.imagesToolBar = imgsToolBar
-        self.imagesActionAddTag = imgsToolBar.addAction("Add to tag (&+)", self.imagesActionAddTagTriggered)
-        self.imagesActionDelTag = imgsToolBar.addAction("Del from tag (&-)", self.imagesActionDelTagTriggered)
-        self.imagesActionAddTag.setShortcut("Ctrl+T")
-        self.imagesActionDelTag.setShortcut("Ctrl+Shift+T")
+        self.imagesActionAddTag = actionAddTag
+        self.imagesActionDelTag = actionDelTag
 
         self.imageLabel = QLabel()
         self.imagesTableView = QTableView()
