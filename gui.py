@@ -14,7 +14,7 @@ from PyQt5.QtCore import (
     pyqtSignal, pyqtSlot,
     Qt,
     QMetaObject, QObject, QThread,
-    QSize, QIODevice, QBuffer, QDataStream,
+    QSize, QByteArray, QIODevice, QBuffer, QDataStream,
     QItemSelectionModel, QIdentityProxyModel,
     QTimer,
 )
@@ -143,7 +143,11 @@ def load_image_thumbnails(tfn, sizes):
             buffer.open(QIODevice.WriteOnly)
             data = QDataStream(buffer)
             data << thumbnail
-            thumbnailDataStreams.append(buffer.buffer())
+            # N.B.: The explicit QByteArray construction avoids a segfault
+            # (The output from worker processes was:
+            # "terminate called after throwing an instance of 'std::bad_alloc'")
+            # when otherwise trying to pickle already freed data.
+            thumbnailDataStreams.append(QByteArray(buffer.buffer()))
             buffer.close()
         return thumbnailDataStreams
 
