@@ -743,11 +743,11 @@ class MainWindow(QMainWindow):
 
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    app.setApplicationName("CLI-P GUI")
     ret = 0
     multiprocessing.set_start_method('spawn')
     with multiprocessing.Pool() as p:
+        app = QApplication(sys.argv)
+        app.setApplicationName("CLI-P GUI")
         win = MainWindow(pool=p)
         win.show()
         ret = app.exec_()
