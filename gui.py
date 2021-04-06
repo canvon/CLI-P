@@ -5,6 +5,7 @@
 import sys
 import time
 from io import StringIO
+import multiprocessing
 import contextlib
 from pathlib import Path
 import collections
@@ -13,7 +14,7 @@ from PyQt5.QtCore import (
     pyqtSignal, pyqtSlot,
     Qt,
     QMetaObject, QObject, QThread,
-    QSize,
+    QSize, QIODevice, QBuffer, QDataStream,
     QItemSelectionModel, QIdentityProxyModel,
     QTimer,
 )
@@ -123,6 +124,38 @@ class ImagesWorker(QObject):
         smallThumbnail = imageQt.scaled(QSize(self._smallSize, self._smallSize), Qt.KeepAspectRatio)
         self.smallThumbnailReady.emit(fix_idx, tfn, smallThumbnail)
 
+def load_image_thumbnails(tfn, sizes):
+        try:
+            imageCv2, _ = load_image(tfn=tfn, max_res=None)
+        except Exception as ex:
+            raise RuntimeError(f"Got exception {type(ex).__name__} loading image: {ex}")
+        try:
+            imageQt = imageFromOpenCV(imageCv2)
+        except Exception as ex:
+            raise RuntimeError(f"Got exception {type(ex).__name__} converting image: {ex}")
+        thumbnailDataStreams = []
+        for size in sizes:
+            # Do the actual resizing to thumbnail.
+            thumbnail = imageQt.scaled(size, Qt.KeepAspectRatio)
+            # As it seems that QImage is not pickle-able, but QByteArray is,
+            # wrap the former into the latter using QDataStream.
+            buffer = QBuffer()
+            buffer.open(QIODevice.WriteOnly)
+            data = QDataStream(buffer)
+            data << thumbnail
+            thumbnailDataStreams.append(buffer.buffer())
+            buffer.close()
+        return thumbnailDataStreams
+
+def unwrap_image(dataStream):
+    buffer = QBuffer(dataStream)
+    buffer.open(QIODevice.ReadOnly)
+    data = QDataStream(buffer)
+    image = QImage()
+    data >> image
+    buffer.close()
+    return image
+
 class HistoryComboBox(QComboBox):
     pageChangeRequested = pyqtSignal(bool)
 
@@ -180,9 +213,10 @@ class MainWindow(QMainWindow):
             super(MainWindow.OurTabPage, self).resizeEvent(ev)
             self.resized.emit()
 
-    def __init__(self, parent=None):
+    def __init__(self, *, pool, parent=None):
         super(MainWindow, self).__init__(parent)
 
+        self.pool = pool
         self.imagesWorker = None
         self.imagesWorkerThread = None
         self.search = None
@@ -467,7 +501,9 @@ class MainWindow(QMainWindow):
         def thumbnail(self, row, result=None):
             """Get thumbnail; if not already cached, use parameter result as info for placing a request for asynchronous loading."""
             if row not in self._thumbnails:
-                self._mainWindow.imageToLoad.emit(result.fix_idx, result.tfn)
+                self._mainWindow.pool.apply_async(load_image_thumbnails, (result.tfn, [QSize(180, 180)]),
+                    callback=(lambda res: self._mainWindow.handleLargeThumbnail(result.fix_idx, result.tfn, unwrap_image(res[0]))),
+                    error_callback=(lambda ex: self._mainWindow.appendSearchOutput(f"Thumbnail error {ex!r}")))
                 return self._tempPixmap
             return self._thumbnails[row]
         def setThumbnail(self, row, thumbnail):
@@ -709,6 +745,12 @@ class MainWindow(QMainWindow):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setApplicationName("CLI-P GUI")
-    win = MainWindow()
-    win.show()
-    sys.exit(app.exec_())
+    ret = 0
+    multiprocessing.set_start_method('spawn')
+    with multiprocessing.Pool() as p:
+        win = MainWindow(pool=p)
+        win.show()
+        ret = app.exec_()
+    sys.exit(ret)
+elif __name__ == '__mp_main__':
+    load_load_image()
