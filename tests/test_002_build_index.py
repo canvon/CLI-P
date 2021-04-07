@@ -23,7 +23,7 @@ class TestBuildIndex(unittest.TestCase):
         #     Error: 'nx >= k' failed: Number of training points (12) should be
         #     at least as large as number of clusters (100)
         #
-        scanner = self.build_index.Scanner(path_prefix=self.path_prefix, clusters=1)
+        scanner = self.build_index.Scanner(path_prefix=self.path_prefix, recursive=True, clusters=1)
         output, errout, _ = tests.helper.capture_stdout_cstderr(lambda: scanner.run(self.samples_path))
         # TODO: Check presence of output files, and that their timestamps
         #       are more recent, after run...
