@@ -39,6 +39,10 @@ path_prefix = None
 # This should give more predictable behaviour like the ls command or a file manager.
 sort_fns = True
 
+# Recurse through sub-directories... Like the ls command, without this
+# it will only process one level of directory entries.
+recursive = False
+
 # Loud mode will spill out exceptions / log error messages.
 loud = False
 
@@ -58,7 +62,8 @@ class Scanner:
 
     def __init__(self, *, faces=faces, pack_type=pack_type, clusters=clusters,
         file_extensions=file_extensions, skip_paths=skip_paths,
-        path_prefix=path_prefix, sort_fns=sort_fns, loud=loud, dry_run=dry_run):
+        path_prefix=path_prefix, sort_fns=sort_fns, recursive=recursive,
+        loud=loud, dry_run=dry_run):
 
 
         # Copy instance variables from keyword arguments defaulted to globals.
@@ -106,6 +111,10 @@ class Scanner:
         if not isinstance(sort_fns, bool):
             raise TypeError(f"sort_fns needs to be a bool, but got type {type(sort_fns)}")
         self.sort_fns = sort_fns
+
+        if not isinstance(recursive, bool):
+            raise TypeError(f"recursive needs to be a bool, but got type {type(recursive)}")
+        self.recursive = recursive
 
         if not isinstance(loud, bool):
             raise TypeError(f"loud needs to be a bool, but got type {type(loud)}")
@@ -226,8 +235,11 @@ class Scanner:
                     try:
                         # Collect sub-directories for later front-queueing.
                         if fn.is_dir():
-                            fn_visual = '/'
-                            subdirs.append(fn)
+                            if self.recursive:
+                                fn_visual = '/'
+                                subdirs.append(fn)
+                            else:
+                                fn_visual = '_' if self.dry_run else None
                             continue
 
                         # Actually process file as image.
@@ -369,7 +381,7 @@ if __name__ == '__main__':
 
     parser.add_argument('base_paths', nargs='*', type=Path, metavar='BASE_PATH',
         help="Filesystem paths to CLIP."
-            " Will recurse through directories."
+            " Will *not* recurse through directories (unless --recursive is given)."
             " Image file names can be given explicitly,"
             " but still must match one of the configured file extensions."
             "\n\nWhen no base paths are given, will only rebuild the faiss index.")
@@ -421,6 +433,15 @@ if __name__ == '__main__':
         action='store_const', const=False,
         help=("" if sort_fns else BOOL_DEFAULT_MSG))
 
+    parser.add_argument('--recursive', '--recurse', dest='recursive', default=recursive,
+        action='store_const', const=True,
+        help="Recurse through sub-directories."
+            " Like the ls command, without this it will only process one level of directory entries." +
+            (" " + BOOL_DEFAULT_MSG if recursive else ""))
+    parser.add_argument('--no-recursive', '--no-recurse', dest='recursive',
+        action='store_const', const=False,
+        help=("" if recursive else BOOL_DEFAULT_MSG))
+
     parser.add_argument('--loud', dest='loud', default=loud, action='store_const', const=True,
         help="Log exception message instead of just printing a status character. ('#' or '!')" +
             ("" + BOOL_DEFAULT_MSG if loud else ""))
@@ -444,6 +465,7 @@ if __name__ == '__main__':
             skip_paths=cli.args.skip_paths,
             path_prefix=cli.args.path_prefix,
             sort_fns=cli.args.sort_fns,
+            recursive=cli.args.recursive,
             loud=cli.args.loud,
             dry_run=cli.args.dry_run,
         )
