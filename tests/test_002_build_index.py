@@ -16,6 +16,17 @@ class TestBuildIndex(unittest.TestCase):
         cls.samples_path = "sample-images"
         cls.build_index = __import__("build-index")
 
+    def test_0001_scan_nonrecursive_default(self):
+        """Test that build-index run, with non-recursive default, will not find the sample images."""
+        scanner = self.build_index.Scanner(path_prefix=self.path_prefix, clusters=1)
+        output, errout, _ = tests.helper.capture_stdout_cstderr(lambda: scanner.run(self.samples_path))
+
+        out_lines = output.splitlines()
+        self.assertGreaterEqual(len(out_lines), 1, msg=f"Non-recursive Scanner didn't give any normal output. Error output was {errout!r}.")
+        self.assertEqual(out_lines[-1], "Done!", msg=f"Non-recursive Scanner normal output didn't end in success. Output was {output!r}, error output was {errout!r}.")
+
+        self.assertEqual(0, scanner.db.count_fn(), msg=f"Non-recursive Scanner found some images all-the-same. Output was {output!r}, error output was {errout!r}.")
+
     def test_scan_samples(self):
         """Test build-index run. This may take a long time, around 1-2 seconds per image."""
         # clusters: Would otherwise fail in faiss with:
