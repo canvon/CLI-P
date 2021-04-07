@@ -98,6 +98,7 @@ class ThumbnailGenerator(QObject):
 
     largeThumbnailReady = pyqtSignal(int, str, QImage)
     smallThumbnailReady = pyqtSignal(int, str, QImage)
+    batchDone = pyqtSignal()
     logMessage = pyqtSignal(str)
 
     def __init__(self, *, pool, poolProcessCount, largeSize=180, smallSize=24, parent=None):
@@ -124,6 +125,7 @@ class ThumbnailGenerator(QObject):
 
     @pyqtSlot()
     def doWork(self):
+        emitBatchDone = False
         # First, try to complete outstanding requests.
         i = 0
         while i < len(self.requests):
@@ -147,6 +149,7 @@ class ThumbnailGenerator(QObject):
                 request.poolResult = None
                 request.searchResult = None
                 del request
+                emitBatchDone = True
         # Then, possibly place new requests.
         while len(self.localWaiting) > 0 and len(self.requests) < self.poolProcessCount:
             request = self.localWaiting.popleft()
@@ -158,6 +161,9 @@ class ThumbnailGenerator(QObject):
         # When there is nothing more to do, stop the timer.
         if len(self.localWaiting) == 0 and len(self.requests) == 0:
             self._timer.stop()
+        # Notify that *some* local work has been done. Can be used to reflow icon view more seldomly.
+        if emitBatchDone:
+            self.batchDone.emit()
 
 
 class HistoryComboBox(QComboBox):
@@ -575,6 +581,8 @@ class MainWindow(QMainWindow):
         self.thumbnailGenerator.logMessage.connect(self.appendSearchOutput)
         self.thumbnailGenerator.largeThumbnailReady.connect(self.handleLargeThumbnail)
         self.thumbnailGenerator.smallThumbnailReady.connect(self.handleSmallThumbnail)
+        self.needReflowIconView = False
+        self.thumbnailGenerator.batchDone.connect(self.handleThumbnailBatchDone)
 
     def clearSearchResultsModel(self):
         self.searchResultSelected = None
@@ -603,11 +611,16 @@ class MainWindow(QMainWindow):
             item.setData(result)
         return items
 
+    def handleThumbnailBatchDone(self):
+        if self.needReflowIconView:
+            self.needReflowIconView = False
+            # Reflow... Needed to avoid rendering bugs.
+            self.thumbnailsListView.setFlow(self.thumbnailsListView.flow())
+
     def handleLargeThumbnail(self, fix_idx, tfn, imageQt):
         update = self._handleThumbnail(self.searchResultsThumbnailsProxyModel, fix_idx, tfn, imageQt)
         if update:
-            # Reflow... Needed to avoid rendering bugs.
-            self.thumbnailsListView.setFlow(self.thumbnailsListView.flow())
+            self.needReflowIconView = True
 
     def handleSmallThumbnail(self, fix_idx, tfn, imageQt):
         self._handleThumbnail(self.searchResultsModel, fix_idx, tfn, imageQt)
