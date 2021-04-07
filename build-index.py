@@ -420,25 +420,25 @@ if __name__ == '__main__':
     parser.add_argument('--add-skip-path', dest='skip_paths', metavar='PATH', action='append',
         help="Adds a single path to the list of to-be-skipped paths.")
 
-    parser.add_argument('--path-prefix', type=Path, default=path_prefix,
+    parser.add_argument('--path-prefix', '-P', type=Path, default=path_prefix,
         help="Path prefix to prepend before any database path names." +
             f" (The default is {path_prefix!r}, but the Path instance around argument will automatically be added.)")
 
-    parser.add_argument('--sort-filenames', '--sort-fns', dest='sort_fns', default=sort_fns,
+    parser.add_argument('--sort-filenames', '--sort-fns', '--no-U', dest='sort_fns', default=sort_fns,
         action='store_const', const=True,
         help="Sort directory listings before processing the directory."
             " This should give more predictable behaviour like the ls command or a file manager." +
             (" " + BOOL_DEFAULT_MSG if sort_fns else ""))
-    parser.add_argument('--no-sort-filenames', '--no-sort-fns', dest='sort_fns',
+    parser.add_argument('--no-sort-filenames', '--no-sort-fns', '-U', dest='sort_fns',
         action='store_const', const=False,
         help=("" if sort_fns else BOOL_DEFAULT_MSG))
 
-    parser.add_argument('--recursive', '--recurse', dest='recursive', default=recursive,
+    parser.add_argument('--recursive', '--recurse', '-r', '-R', dest='recursive', default=recursive,
         action='store_const', const=True,
         help="Recurse through sub-directories."
             " Like the ls command, without this it will only process one level of directory entries." +
             (" " + BOOL_DEFAULT_MSG if recursive else ""))
-    parser.add_argument('--no-recursive', '--no-recurse', dest='recursive',
+    parser.add_argument('--no-recursive', '--no-recurse', '--no-r', '--no-R', dest='recursive',
         action='store_const', const=False,
         help=("" if recursive else BOOL_DEFAULT_MSG))
 
@@ -448,10 +448,10 @@ if __name__ == '__main__':
     parser.add_argument('--no-loud', dest='loud', action='store_const', const=False,
         help=("" if loud else BOOL_DEFAULT_MSG))
 
-    parser.add_argument('--dry-run', dest='dry_run', default=dry_run, action='store_const', const=True,
+    parser.add_argument('--dry-run', '-n', dest='dry_run', default=dry_run, action='store_const', const=True,
         help=DRY_RUN_MSG +
             (" " + BOOL_DEFAULT_MSG if dry_run else ""))
-    parser.add_argument('--no-dry-run', dest='dry_run', action='store_const', const=False,
+    parser.add_argument('--no-dry-run', '--no-n', dest='dry_run', action='store_const', const=False,
         help=("" if dry_run else BOOL_DEFAULT_MSG))
 
     cli = main_helper.setupCLI(argvParser=parser)
