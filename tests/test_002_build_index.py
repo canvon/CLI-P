@@ -46,8 +46,7 @@ class TestBuildIndex(unittest.TestCase):
         # to give the paths count without building up lists storing all the elements.
         # The per-extension counts are then summed up to give the overall result.)
         n_images_expected = sum(sum(1 for _ in dir.rglob('*' + ext)) for ext in scanner.file_extensions)
-        with scanner.db.env.begin(db=scanner.db.fn_db) as txn:
-            n_images_db = txn.stat()['entries']
+        n_images_db = scanner.db.count_fn()
         self.assertEqual(n_images_expected, n_images_db, msg=f"build-index gave {'less' if n_images_db < n_images_expected else 'more'} results than expected! Output was {output!r}.")
 
         out_lines = output.splitlines()

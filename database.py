@@ -125,6 +125,19 @@ class DB:
         with self.env.begin(db=self.fix_idx_db) as txn:
             return txn.get(b'next')
 
+    def count(self, db):
+        with self.env.begin(db=db) as txn:
+            return txn.stat()['entries']
+
+    def count_fn(self):
+        return self.count(self.fn_db)
+
+    def count_skip(self):
+        return self.count(self.skip_db)
+
+    def count_fix_idx(self):
+        return self.count(self.fix_idx_db)
+
     def get_s(self, s, db):
         with self.env.begin(db=db) as txn:
             return txn.get(self.sha256(s.encode('utf-8', 'surrogateescape')))
