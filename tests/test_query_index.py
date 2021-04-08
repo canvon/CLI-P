@@ -220,10 +220,11 @@ class TestQueryIndex(unittest.TestCase):
                     with self.subTest(expected_n_results=expected_n_results, batch=batch):
                         # (Note that this is a sub-test, to keep the machinery running and check what happens on further batches...)
                         self.assertEqual(expected_n_results, n_results, msg="Result splitting real search do_search() gave wrong number of results.")
+                    with self.subTest(what='compare results contents', batch=batch):
+                        # (Note that this will update search.last_j, which is then used for the new batch'es offset!)
+                        real_results = list(map(lambda result: (result.score, result.fix_idx, str(result.tfn)), search.prepare_results()))
+                        self.assertListEqual(fake_results[:expected_n_results], real_results, msg="Result splitting real search do_search()/prepare_results() gave wrong results contents.")
                     n_results_prev = n_results
-                    # Fake that something would actually have retrieved the results...
-                    # TODO: Compare actual results contents, not only the structure...
-                    search.last_j = n_results - 1
 
 if __name__ == '__main__':
     unittest.main()
