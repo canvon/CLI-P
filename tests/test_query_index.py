@@ -189,6 +189,7 @@ class TestQueryIndex(unittest.TestCase):
                 # TODO: Also check similarity score?
 
     def test_result_splitting(self):
+        """Test query-index.Search result splitting, i.e., k more results on each follow-up request."""
         search = self.search
         #n_filenames = search.db.count_fn()  # FIXME: Uncomment again after removing the following workaround:
         with search.db.env.begin(db=search.db.fn_db) as txn:
