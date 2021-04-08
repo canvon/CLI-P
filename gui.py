@@ -241,26 +241,29 @@ class MainWindow(QMainWindow):
         self._createMenus()
         self._createToolBars()
         self._createCentralWidget()
+        self.statusBar()  # Make sure a status bar is there, for displaying status tips from the QAction-s...
         self.searchInput.setFocus()
 
         self.createSearchResultsModel()
 
     def _createActions(self):
+        def makeToolTip(action):
+            action.setToolTip(action.statusTip() + " Shortcut: " + action.shortcut().toString())
+
         self.quitAction = QAction("&Quit", self)
         self.quitAction.setShortcut("Ctrl+Q")
-        self.quitAction.setToolTip("Quits the application. Shortcut: " + self.quitAction.shortcut().toString())
+        self.quitAction.setStatusTip("Quits the application.")
+        makeToolTip(self.quitAction)
         self.quitAction.triggered.connect(self.quitActionTriggered)
 
         addTagAction = QAction("&Add to tag", self)
         delTagAction = QAction("&Del from tag", self)
         addTagAction.setShortcut("Ctrl+T")
         delTagAction.setShortcut("Ctrl+Shift+T")
-        addTagAction.setToolTip(
-            "Add displayed image to tag that was searched. Shortcut: " +
-            addTagAction.shortcut().toString())
-        delTagAction.setToolTip(
-            "Remove displayed image from tag that was searched. Shortcut: " +
-            delTagAction.shortcut().toString())
+        addTagAction.setStatusTip("Add displayed image to tag that was searched.")
+        delTagAction.setStatusTip("Remove displayed image from tag that was searched.")
+        makeToolTip(addTagAction)
+        makeToolTip(delTagAction)
         addTagAction.triggered.connect(self.imagesAddTagActionTriggered)
         delTagAction.triggered.connect(self.imagesDelTagActionTriggered)
         self.imagesAddTagAction = addTagAction
