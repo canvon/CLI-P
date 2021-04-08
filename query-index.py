@@ -383,7 +383,7 @@ class Search:
                 if self.results is None or len(self.results) < 1:
                     print("Not found.")
                     return True
-                self.offset = -1
+                self.offset = 0
                 self.last_j = -1
                 print(f"Showing unnamed cluster {cluster_id}:")
                 self.search_mode = SearchMode.NONE_NOSKIP
@@ -438,7 +438,7 @@ class Search:
                 if self.results is None or tag == "" or len(self.results) < 1:
                     print("Not found.")
                     return True
-                self.offset = -1
+                self.offset = 0
                 self.last_j = -1
                 print(f"Showing tag {tag}:")
                 print("Image\tFace")
@@ -453,7 +453,7 @@ class Search:
         elif self.in_text.startswith('l '):
             try:
                 image_id = int(self.in_text[2:])
-                self.offset = -1
+                self.offset = 0
                 self.last_j = -1
                 try:
                     filename = self.db.get_fix_idx_filename(image_id)
@@ -481,7 +481,7 @@ class Search:
                 parts = self.in_text[2:].split(" ", 2)
                 tag = parts[0]
                 self.target_tag = tag
-                self.offset = -1
+                self.offset = 0
                 self.last_j = -1
 
                 self.features = self.cfg.get_tag_embeddings(tag, self.cluster_mode)
@@ -510,7 +510,7 @@ class Search:
                 parts = self.in_text[3:].split(" ", 3)
                 image_id = int(parts[0])
                 face_id = int(parts[1])
-                self.offset = -1
+                self.offset = 0
                 self.last_j = -1
 
                 filename = self.db.get_fix_idx_filename(image_id)
@@ -529,7 +529,7 @@ class Search:
         elif self.in_text.startswith('i '):
             try:
                 image_id = int(self.in_text[2:])
-                self.offset = -1
+                self.offset = 0
                 self.last_j = -1
                 filename = self.db.get_fix_idx_filename(image_id)
                 self.features = self.db.get_fix_idx_vector(image_id)
@@ -541,11 +541,11 @@ class Search:
             self.target_tag = None
             self.last_vector = None
         elif self.in_text == '':
-            self.offset = self.last_j
+            self.offset = self.last_j + 1
             if self.features is None and self.search_mode > 0:
                 return True
         else:
-            self.offset = -1
+            self.offset = 0
             self.last_j = -1
             self.texts, self.features = self.clip_texts([self.in_text])
             self.search_mode = SearchMode.CLIP
@@ -565,9 +565,9 @@ class Search:
             I = [[]]
             extra = 0
             valid_results = 0
-            while valid_results < self.k + self.offset + 2 and len(I[0]) > last_results_num:
+            while valid_results < self.k + self.offset and len(I[0]) > last_results_num:
                 last_results_num = len(I[0])
-                D, I = self.index.search(self.features, self.k + self.offset + 2 + extra)
+                D, I = self.index.search(self.features, self.k + self.offset + extra)
                 self.results = merge_faiss_results(D, I, self.db.get_idx)
                 if self.file_filter is None:
                     break
@@ -591,7 +591,7 @@ class Search:
         elif self.search_mode is SearchMode.FACE:
             # Search face embedding
             search_start = time.perf_counter()
-            D, I = self.faces_index.search(self.features, self.k + self.offset + 2)
+            D, I = self.faces_index.search(self.features, self.k + self.offset)
             self.results = merge_faiss_results(D, I, self.db.get_idx_face)
             search_time = time.perf_counter() - search_start
             print(f"Search time: {search_time:.4f}s")
