@@ -238,6 +238,7 @@ class MainWindow(QMainWindow):
 
         # Set up the various stuff that makes up the GUI:
         self._createActions()
+        self._createMenus()
         self._createToolBars()
         self._createCentralWidget()
         self.searchInput.setFocus()
@@ -245,6 +246,11 @@ class MainWindow(QMainWindow):
         self.createSearchResultsModel()
 
     def _createActions(self):
+        self.quitAction = QAction("&Quit", self)
+        self.quitAction.setShortcut("Ctrl+Q")
+        self.quitAction.setToolTip("Quits the application. Shortcut: " + self.quitAction.shortcut().toString())
+        self.quitAction.triggered.connect(self.quitActionTriggered)
+
         addTagActionBaseText = "Add to tag"
         delTagActionBaseText = "Del from tag"
         addTagAction = QAction(addTagActionBaseText + " (&+)", self)
@@ -258,9 +264,20 @@ class MainWindow(QMainWindow):
         self.imagesAddTagAction = addTagAction
         self.imagesDelTagAction = delTagAction
 
+    def _createMenus(self):
+        menuBar = self.menuBar()
 
+        self.fileMenu = menuBar.addMenu("&File")
+        self.fileMenu.addAction(self.quitAction)
+
+        self.imagesMenu = menuBar.addMenu("&Image")
+        self.imagesMenu.addAction(self.imagesAddTagAction)
+        self.imagesMenu.addAction(self.imagesDelTagAction)
 
     def _createToolBars(self):
+        self.fileToolBar = self.addToolBar("File")
+        self.fileToolBar.addAction(self.quitAction)
+
         imgsToolBar = self.addToolBar("Images")
         imgsToolBar.addAction(self.imagesAddTagAction)
         imgsToolBar.addAction(self.imagesDelTagAction)
@@ -363,6 +380,9 @@ class MainWindow(QMainWindow):
         self.centralVBox.addWidget(self.searchHint)
         self.centralVBox.addLayout(inputHBox)
 
+
+    def quitActionTriggered(self):
+        self.close()
 
     def imagesTabPageResized(self):
         contents = self.imagesTabPage.contentsRect()
@@ -477,7 +497,7 @@ class MainWindow(QMainWindow):
         if iteration_done:
             # Check for q (quit) command.
             if search.running_cli == False:
-                self.close()
+                self.quitActionTriggered()
             return
 
         self.stdoutSearchOutput(search.do_search)
