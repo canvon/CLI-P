@@ -25,7 +25,7 @@ from PyQt5.QtGui import (
 )
 from PyQt5.QtWidgets import (
     qApp,
-    QApplication, QMainWindow, QWidget,
+    QApplication, QMainWindow, QAction, QWidget,
     QSizePolicy,
     QHBoxLayout, QVBoxLayout, QTabWidget,
     QComboBox, QLabel, QPushButton, QTextEdit,
@@ -236,20 +236,28 @@ class MainWindow(QMainWindow):
         self.resize(1600, 900)
 
 
+        # Actions:
+
+        addTagActionBaseText = "Add to tag"
+        delTagActionBaseText = "Del from tag"
+        addTagAction = QAction(addTagActionBaseText + " (&+)", self)
+        delTagAction = QAction(delTagActionBaseText + " (&-)", self)
+        addTagAction.setShortcut("Ctrl+T")
+        delTagAction.setShortcut("Ctrl+Shift+T")
+        addTagAction.setIconText(f"{addTagActionBaseText} ({addTagAction.shortcut().toString()})")
+        delTagAction.setIconText(f"{delTagActionBaseText} ({delTagAction.shortcut().toString()})")
+        addTagAction.triggered.connect(self.imagesAddTagActionTriggered)
+        delTagAction.triggered.connect(self.imagesDelTagActionTriggered)
+        self.imagesAddTagAction = addTagAction
+        self.imagesDelTagAction = delTagAction
+
+
         # Tool bars:
 
         imgsToolBar = self.addToolBar("Images")
-        actionAddTagBaseText = "Add to tag"
-        actionDelTagBaseText = "Del from tag"
-        actionAddTag = imgsToolBar.addAction(actionAddTagBaseText + " (&+)", self.imagesActionAddTagTriggered)
-        actionDelTag = imgsToolBar.addAction(actionDelTagBaseText + " (&-)", self.imagesActionDelTagTriggered)
-        actionAddTag.setShortcut("Ctrl+T")
-        actionDelTag.setShortcut("Ctrl+Shift+T")
-        actionAddTag.setIconText(f"{actionAddTagBaseText} ({actionAddTag.shortcut().toString()})")
-        actionDelTag.setIconText(f"{actionDelTagBaseText} ({actionDelTag.shortcut().toString()})")
+        imgsToolBar.addAction(addTagAction)
+        imgsToolBar.addAction(delTagAction)
         self.imagesToolBar = imgsToolBar
-        self.imagesActionAddTag = actionAddTag
-        self.imagesActionDelTag = actionDelTag
 
 
         # Central widget, with all the main content:
@@ -746,14 +754,14 @@ class MainWindow(QMainWindow):
             return
         self.showSearchResult(recreatedResult, force=True)
 
-    def imagesActionAddTagTriggered(self):
+    def imagesAddTagActionTriggered(self):
         search = self.search
         if search is None:
             self.appendSearchOutput("Search instance missing.")
             return
         self.updateSearchResultSelected(search.maybe_add_tag)
 
-    def imagesActionDelTagTriggered(self):
+    def imagesDelTagActionTriggered(self):
         search = self.search
         if search is None:
             self.appendSearchOutput("Search instance missing.")
