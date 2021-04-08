@@ -497,8 +497,7 @@ class Search:
                 if len(parts) > 1:
                     self.face_features = self.features
                     self.search_mode = SearchMode.CLIP_FACE
-                    self.texts = clip.tokenize([parts[1]]).to(self.device)
-                    self.features = normalize(self.model.encode_text(self.texts).detach().cpu().numpy().astype('float32'))
+                    self.texts, self.features = self.clip_texts([parts[1]])
                 print(f"Similar faces to {tag}:")
             except:
                 print("Error")
@@ -520,8 +519,7 @@ class Search:
                 if len(parts) > 2:
                     self.face_features = self.features
                     self.search_mode = SearchMode.CLIP_FACE
-                    self.texts = clip.tokenize([parts[2]]).to(self.device)
-                    self.features = normalize(self.model.encode_text(self.texts).detach().cpu().numpy().astype('float32'))
+                    self.texts, self.features = self.clip_texts([parts[2]])
                 print(f"Similar faces to {face_id} in {image_id}:")
             except:
                 print("Not found.")
@@ -549,11 +547,15 @@ class Search:
         else:
             self.offset = -1
             self.last_j = -1
-            self.texts = clip.tokenize([self.in_text]).to(self.device)
-            self.features = normalize(self.model.encode_text(self.texts).detach().cpu().numpy().astype('float32'))
+            self.texts, self.features = self.clip_texts([self.in_text])
             self.search_mode = SearchMode.CLIP
             self.target_tag = None
             self.last_vector = None
+
+    def clip_texts(self, input_texts):
+            texts = clip.tokenize(input_texts).to(self.device)
+            features = normalize(self.model.encode_text(texts).detach().cpu().numpy().astype('float32'))
+            return texts, features
 
     def do_search(self):
         if self.search_mode is SearchMode.CLIP:
