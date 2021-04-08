@@ -27,7 +27,7 @@ from PyQt5.QtWidgets import (
     qApp,
     QApplication, QMainWindow, QWidget,
     QSizePolicy,
-    QHBoxLayout, QVBoxLayout, QTabWidget, QToolBar,
+    QHBoxLayout, QVBoxLayout, QTabWidget,
     QComboBox, QLabel, QPushButton, QTextEdit,
     QListView, QTableView,
 )
@@ -235,6 +235,25 @@ class MainWindow(QMainWindow):
         # TODO: Take from config db.
         self.resize(1600, 900)
 
+
+        # Tool bars:
+
+        imgsToolBar = self.addToolBar("Images")
+        actionAddTagBaseText = "Add to tag"
+        actionDelTagBaseText = "Del from tag"
+        actionAddTag = imgsToolBar.addAction(actionAddTagBaseText + " (&+)", self.imagesActionAddTagTriggered)
+        actionDelTag = imgsToolBar.addAction(actionDelTagBaseText + " (&-)", self.imagesActionDelTagTriggered)
+        actionAddTag.setShortcut("Ctrl+T")
+        actionDelTag.setShortcut("Ctrl+Shift+T")
+        actionAddTag.setIconText(f"{actionAddTagBaseText} ({actionAddTag.shortcut().toString()})")
+        actionDelTag.setIconText(f"{actionDelTagBaseText} ({actionDelTag.shortcut().toString()})")
+        self.imagesToolBar = imgsToolBar
+        self.imagesActionAddTag = actionAddTag
+        self.imagesActionDelTag = actionDelTag
+
+
+        # Central widget, with all the main content:
+
         centralWidget = QWidget()
         centralVBox = QVBoxLayout(centralWidget)
 
@@ -261,25 +280,11 @@ class MainWindow(QMainWindow):
         self.imagesTabPage.resized.connect(self.imagesTabPageResized)
         imagesVBox = QVBoxLayout(self.imagesTabPage)
 
-        imgsToolBar = QToolBar()
-        actionAddTagBaseText = "Add to tag"
-        actionDelTagBaseText = "Del from tag"
-        actionAddTag = imgsToolBar.addAction(actionAddTagBaseText + " (&+)", self.imagesActionAddTagTriggered)
-        actionDelTag = imgsToolBar.addAction(actionDelTagBaseText + " (&-)", self.imagesActionDelTagTriggered)
-        actionAddTag.setShortcut("Ctrl+T")
-        actionDelTag.setShortcut("Ctrl+Shift+T")
-        actionAddTag.setIconText(f"{actionAddTagBaseText} ({actionAddTag.shortcut().toString()})")
-        actionDelTag.setIconText(f"{actionDelTagBaseText} ({actionDelTag.shortcut().toString()})")
-        self.imagesToolBar = imgsToolBar
-        self.imagesActionAddTag = actionAddTag
-        self.imagesActionDelTag = actionDelTag
-
         self.imageLabel = QLabel()
         self.imagesTableView = QTableView()
         self.imagesTableView.setEditTriggers(QTableView.NoEditTriggers)
         self.imagesTableView.activated.connect(self.searchResultsActivated)
 
-        imagesVBox.addWidget(self.imagesToolBar)
         imagesVBox.addWidget(self.imageLabel)
         imagesVBox.addWidget(self.imagesTableView)
         self.tabWidget.addTab(self.imagesTabPage, "&2 Images")
