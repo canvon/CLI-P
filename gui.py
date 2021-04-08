@@ -251,14 +251,16 @@ class MainWindow(QMainWindow):
         self.quitAction.setToolTip("Quits the application. Shortcut: " + self.quitAction.shortcut().toString())
         self.quitAction.triggered.connect(self.quitActionTriggered)
 
-        addTagActionBaseText = "Add to tag"
-        delTagActionBaseText = "Del from tag"
-        addTagAction = QAction(addTagActionBaseText + " (&+)", self)
-        delTagAction = QAction(delTagActionBaseText + " (&-)", self)
+        addTagAction = QAction("&Add to tag", self)
+        delTagAction = QAction("&Del from tag", self)
         addTagAction.setShortcut("Ctrl+T")
         delTagAction.setShortcut("Ctrl+Shift+T")
-        addTagAction.setIconText(f"{addTagActionBaseText} ({addTagAction.shortcut().toString()})")
-        delTagAction.setIconText(f"{delTagActionBaseText} ({delTagAction.shortcut().toString()})")
+        addTagAction.setToolTip(
+            "Add displayed image to tag that was searched. Shortcut: " +
+            addTagAction.shortcut().toString())
+        delTagAction.setToolTip(
+            "Remove displayed image from tag that was searched. Shortcut: " +
+            delTagAction.shortcut().toString())
         addTagAction.triggered.connect(self.imagesAddTagActionTriggered)
         delTagAction.triggered.connect(self.imagesDelTagActionTriggered)
         self.imagesAddTagAction = addTagAction
