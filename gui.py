@@ -223,6 +223,7 @@ class MainWindow(QMainWindow):
             super(MainWindow.OurTabPage, self).resizeEvent(ev)
             self.resized.emit()
 
+
     def __init__(self, *, pool, poolProcessCount, parent=None):
         super(MainWindow, self).__init__(parent)
 
@@ -235,9 +236,15 @@ class MainWindow(QMainWindow):
         # TODO: Take from config db.
         self.resize(1600, 900)
 
+        # Set up the various stuff that makes up the GUI:
+        self._createActions()
+        self._createToolBars()
+        self._createCentralWidget()
+        self.searchInput.setFocus()
 
-        # Actions:
+        self.createSearchResultsModel()
 
+    def _createActions(self):
         addTagActionBaseText = "Add to tag"
         delTagActionBaseText = "Del from tag"
         addTagAction = QAction(addTagActionBaseText + " (&+)", self)
@@ -252,22 +259,28 @@ class MainWindow(QMainWindow):
         self.imagesDelTagAction = delTagAction
 
 
-        # Tool bars:
 
+    def _createToolBars(self):
         imgsToolBar = self.addToolBar("Images")
-        imgsToolBar.addAction(addTagAction)
-        imgsToolBar.addAction(delTagAction)
+        imgsToolBar.addAction(self.imagesAddTagAction)
+        imgsToolBar.addAction(self.imagesDelTagAction)
         self.imagesToolBar = imgsToolBar
 
-
-        # Central widget, with all the main content:
-
+    def _createCentralWidget(self):
         centralWidget = QWidget()
-        centralVBox = QVBoxLayout(centralWidget)
+        self.centralVBox = QVBoxLayout(centralWidget)
 
         self.tabWidget = QTabWidget()
+        self._createConsoleTabPage()
+        self._createImagesTabPage()
+        self._createThumbnailsTabPage()
+        self.centralVBox.addWidget(self.tabWidget)
 
+        self._createSearchWidgets()
 
+        self.setCentralWidget(centralWidget)
+
+    def _createConsoleTabPage(self):
         # Page 1: Console
         self.consoleTabPage = QWidget()
         consoleVBox = QVBoxLayout(self.consoleTabPage)
@@ -282,7 +295,7 @@ class MainWindow(QMainWindow):
         consoleVBox.addWidget(self.searchOutput)
         self.tabWidget.addTab(self.consoleTabPage, "&1 Console")
 
-
+    def _createImagesTabPage(self):
         # Page 2: Images
         self.imagesTabPage = self.OurTabPage()
         self.imagesTabPage.resized.connect(self.imagesTabPageResized)
@@ -297,7 +310,7 @@ class MainWindow(QMainWindow):
         imagesVBox.addWidget(self.imagesTableView)
         self.tabWidget.addTab(self.imagesTabPage, "&2 Images")
 
-
+    def _createThumbnailsTabPage(self):
         # Page 3: Thumbnails
         self.thumbnailsTabPage = QWidget()
         thumbnailsVBox = QVBoxLayout(self.thumbnailsTabPage)
@@ -310,7 +323,7 @@ class MainWindow(QMainWindow):
         thumbnailsVBox.addWidget(self.thumbnailsListView)
         self.tabWidget.addTab(self.thumbnailsTabPage, "&3 Thumbnails")
 
-
+    def _createSearchWidgets(self):
         self.searchHint = QLabel()
 
 
@@ -347,14 +360,9 @@ class MainWindow(QMainWindow):
         inputHBox.addWidget(self.searchInputButton)
 
 
-        centralVBox.addWidget(self.tabWidget)
-        centralVBox.addWidget(self.searchHint)
-        centralVBox.addLayout(inputHBox)
+        self.centralVBox.addWidget(self.searchHint)
+        self.centralVBox.addLayout(inputHBox)
 
-        self.setCentralWidget(centralWidget)
-        self.searchInput.setFocus()
-
-        self.createSearchResultsModel()
 
     def imagesTabPageResized(self):
         contents = self.imagesTabPage.contentsRect()
