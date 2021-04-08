@@ -443,6 +443,13 @@ class MainWindow(QMainWindow):
         if storedText != inputText:
             self.searchInput.addItem(inputText)
         self.searchInput.clearEditText()
+        # Before clearing the model, try to guess what start image to show first.
+        startModelRow = 0
+        if search.in_text == '':  # "more results"
+            index = self.imagesTableView.currentIndex()
+            if index.isValid():
+                startModelRow = index.row()  # Don't do "+ 1", as there might not be any more results... Just keep position.
+        # Only now: Clear the model.
         self.clearSearchResultsModel()
 
         iteration_done = self.stdoutSearchOutput(search.do_command)
@@ -466,7 +473,7 @@ class MainWindow(QMainWindow):
         # Already activate Images tab and load first image...
         self.tabWidget.setCurrentWidget(self.imagesTabPage)
         view = self.imagesTableView
-        nextIndex = view.model().index(0, 0)
+        nextIndex = view.model().index(startModelRow, 0)
         if nextIndex.isValid():
             view.selectionModel().setCurrentIndex(nextIndex, QItemSelectionModel.SelectCurrent)
             self.searchResultsActivated(nextIndex)
