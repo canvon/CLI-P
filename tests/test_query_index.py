@@ -3,6 +3,7 @@ tests.helper.setupWarningFilters()
 
 import unittest
 import os.path
+from pathlib import Path
 
 class TestQueryIndex(unittest.TestCase):
 
@@ -186,6 +187,43 @@ class TestQueryIndex(unittest.TestCase):
                             break
                     self.assertEqual(len(image_names_left), 0, msg=f"Search for search_text={search_text!r} has no further result (after {n} results, with image_names_left={image_names_left!r}")
                 # TODO: Also check similarity score?
+
+    def test_result_splitting(self):
+        search = self.search
+        #n_filenames = search.db.count_fn()  # FIXME: Uncomment again after removing the following workaround:
+        with search.db.env.begin(db=search.db.fn_db) as txn:
+            n_filenames = txn.stat()['entries']
+        in_text = "cat"
+        expected_primary_result_fn = "uriel-soberanes-xadzcCQZ_Xc-unsplash.jpg"
+
+        # Do a side-search, already.
+        texts, features = search.clip_texts([in_text])
+        D, I = search.index.search(features, n_filenames)  # Get faiss data on all sample-images.
+        fake_results1_gen = zip(D[0], map(search.db.get_idx, I[0]))
+        fake_results = list(map(lambda pair: (pair[0], pair[1], search.db.get_fix_idx_filename(pair[1])), fake_results1_gen))
+        self.assertEqual(n_filenames, len(fake_results), msg=f"Result splitting side-search didn't return all {n_filenames} images.")
+        self.assertEqual(expected_primary_result_fn, Path(fake_results[0][2]).name, msg="Result splitting side-search didn't return primary expected result image.")
+
+        # Now do the real search, and compare.
+        for n_batches in [3, 4]:
+            k = n_filenames // n_batches
+            with self.subTest(k=k, n_batches=n_batches, n_filenames=n_filenames):
+                search.k = k
+                n_results_prev = 0
+                for batch in range(1, n_batches+1 + 2):  # (range()'s stop is exclusive => n_batches+1)
+                    search.in_text = in_text if batch == 1 else ''
+                    _, iterationDone = tests.helper.capture_stdout(search.do_command)
+                    self.assertFalse(iterationDone, msg=f"Result splitting real search, batch {batch}, do_command() requested 'no search' for search.in_text={search.in_text!r}")
+                    tests.helper.capture_stdout(search.do_search)
+                    expected_n_results = min(n_results_prev + k, n_filenames)
+                    n_results = 0 if search.results is None else len(search.results)
+                    with self.subTest(expected_n_results=expected_n_results, batch=batch):
+                        # (Note that this is a sub-test, to keep the machinery running and check what happens on further batches...)
+                        self.assertEqual(expected_n_results, n_results, msg="Result splitting real search do_search() gave wrong number of results.")
+                    n_results_prev = n_results
+                    # Fake that something would actually have retrieved the results...
+                    # TODO: Compare actual results contents, not only the structure...
+                    search.last_j = n_results - 1
 
 if __name__ == '__main__':
     unittest.main()
