@@ -21,7 +21,8 @@ from PyQt5.QtCore import (
 )
 from PyQt5.QtGui import (
     QStandardItemModel, QStandardItem,
-    QImage, QPixmap,
+    QImage, QPixmap, QIcon,
+    QKeySequence,
 )
 from PyQt5.QtWidgets import (
     qApp,
@@ -250,8 +251,9 @@ class MainWindow(QMainWindow):
         def makeToolTip(action):
             action.setToolTip(action.statusTip() + " Shortcut: " + action.shortcut().toString())
 
-        self.quitAction = QAction("&Quit", self)
-        self.quitAction.setShortcut("Ctrl+Q")
+        quitIcon = QIcon.fromTheme("application-exit")
+        self.quitAction = QAction(quitIcon, "&Quit", self)
+        self.quitAction.setShortcuts(QKeySequence.Quit)
         self.quitAction.setStatusTip("Quits the application.")
         makeToolTip(self.quitAction)
         self.quitAction.triggered.connect(self.quitActionTriggered)
