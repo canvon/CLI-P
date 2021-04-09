@@ -225,6 +225,9 @@ class MainWindow(QMainWindow):
             self.resized.emit()
 
 
+    ADD_RESULTS_LIMIT = 1000  # TODO: Make configurable?
+
+
     def __init__(self, *, pool, poolProcessCount, parent=None):
         super(MainWindow, self).__init__(parent)
 
@@ -258,6 +261,12 @@ class MainWindow(QMainWindow):
         makeToolTip(self.quitAction)
         self.quitAction.triggered.connect(self.quitActionTriggered)
 
+        self.moreResultsAction = QAction("&More results", self)
+        self.moreResultsAction.setShortcut("Ctrl+M")
+        self.moreResultsAction.setStatusTip("Retrieve more results, possibly doing a follow-up \"more results\" (empty input) search.")
+        makeToolTip(self.moreResultsAction)
+        self.moreResultsAction.triggered.connect(self.moreResultsActionTriggered)
+
         addTagAction = QAction("&Add to tag", self)
         delTagAction = QAction("&Del from tag", self)
         addTagAction.setShortcut("Ctrl+T")
@@ -289,6 +298,9 @@ class MainWindow(QMainWindow):
         self.fileMenu = menuBar.addMenu("&File")
         self.fileMenu.addAction(self.quitAction)
 
+        self.queryMenu = menuBar.addMenu("&Query")
+        self.queryMenu.addAction(self.moreResultsAction)
+
         self.imagesMenu = menuBar.addMenu("&Image")
         self.imagesMenu.addAction(self.imagesAddTagAction)
         self.imagesMenu.addAction(self.imagesDelTagAction)
@@ -300,6 +312,9 @@ class MainWindow(QMainWindow):
     def _createToolBars(self):
         self.fileToolBar = self.addToolBar("File")
         self.fileToolBar.addAction(self.quitAction)
+
+        self.queryToolBar = self.addToolBar("Query")
+        self.queryToolBar.addAction(self.moreResultsAction)
 
         imgsToolBar = self.addToolBar("Images")
         imgsToolBar.addAction(self.imagesAddTagAction)
@@ -530,9 +545,16 @@ class MainWindow(QMainWindow):
             return
         #self.stdoutSearchOutput(search.do_display)
         self.appendSearchOutput(f"Building results model for {n_results} results...")
+        n_rows = 0
+        limit_hit = False
         for result in search.prepare_results():
             self.appendToSearchResultsModel(result)
-        self.appendSearchOutput(f"Built results model with {self.searchResultsModel.rowCount()} entries.")
+            n_rows += 1
+            if n_rows >= self.ADD_RESULTS_LIMIT:
+                limit_hit = True
+                break
+        self.appendSearchOutput(f"Built results model with {self.searchResultsModel.rowCount()} entries." +
+            (" (Hit add results limit.)" if limit_hit else ""))
 
         # Already activate Images tab and load first image...
         self.tabWidget.setCurrentWidget(self.imagesTabPage)
@@ -541,6 +563,60 @@ class MainWindow(QMainWindow):
         if nextIndex.isValid():
             view.selectionModel().setCurrentIndex(nextIndex, QItemSelectionModel.SelectCurrent)
             self.searchResultsActivated(nextIndex)
+
+    def moreResultsActionTriggered(self):
+        """
+        This is a special form of handleSearchInput() that tries to
+        get more results from the Search.results list
+        or even a follow-up "more results" search (with empty input text).
+        """
+        model = self.searchResultsModel
+        search = self.search
+
+        # Assess current situation.
+        n_rows = model.rowCount()
+        last_j = -1
+        if n_rows > 0:
+            last_index = model.index(n_rows - 1, 0)
+            last_result = model.data(last_index, Qt.UserRole + 1)
+            if last_result is not None:
+                last_j = last_result.results_j
+
+        # Try to get more results from Search.results list.
+        def addRows(start):
+            n_rows_added = 0
+            for result in search.prepare_results(start=start):
+                self.appendToSearchResultsModel(result)
+                n_rows_added += 1
+                # Have a limit on how much data gets loaded into the GUI at once.
+                if n_rows_added >= self.ADD_RESULTS_LIMIT:
+                    self.appendSearchOutput(f"Hitting add results limit of {self.ADD_RESULTS_LIMIT}.")
+                    break
+            # Has anything been added, yet? Then we're done.
+            if n_rows_added > 0:
+                self.appendSearchOutput(f"Added {n_rows_added} rows to results model.")
+                return True
+            return False
+        if addRows(last_j + 1):
+            return
+
+        # Otherwise, try a search for more results:
+        self.appendSearchOutput("Searching for more results...")
+        n_results_prev = 0 if search.results is None else len(search.results)
+        search.in_text = ''
+        iteration_done = self.stdoutSearchOutput(search.do_command)
+        if iteration_done:
+            self.appendSearchOutput("Unexpected: Search.do_command() requested 'no search'.")
+            return
+        self.stdoutSearchOutput(search.do_search)
+        n_results = 0 if search.results is None else len(search.results)
+        if not n_results > n_results_prev:
+            self.appendSearchOutput("No more results.")
+            return
+        self.appendSearchOutput(f"Found {n_results - n_results_prev} more results.")
+        if addRows(n_results_prev):
+            return
+        self.appendSearchOutput("Nothing to add to results model.")
 
     class SearchResultsModel(QStandardItemModel):
         def __init__(self, rows, columns, *, mainWindow, parent=None):

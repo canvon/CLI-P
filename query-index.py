@@ -679,7 +679,7 @@ class Search:
                 return None, j, compensate
         return result, j, compensate
 
-    def prepare_results(self):
+    def prepare_results(self, *, start=0):
         """
         A generator function that abstracts out a minimal control flow
         when using Search.prepare_result() (singular).
@@ -688,7 +688,7 @@ class Search:
         @ytype Search.Result
         """
         n_results = 0 if self.results is None else len(self.results)
-        j = 0
+        j = start
         self.tried_j = -1
         self.last_vector = None
         while j < n_results:
