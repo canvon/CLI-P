@@ -115,6 +115,12 @@ class ThumbnailGenerator(QObject):
         self._timer.setInterval(1000/10)  # 10 FPS; 250ms ^= 4 FPS didn't feel fluid enough!
 
     def requestThumbnail(self, searchResult):
+        # Try to optimize out repetitive requests.
+        for waiting in self.localWaiting:
+            waitingResult = waiting.searchResult
+            if waitingResult.fix_idx == searchResult.fix_idx and waitingResult.tfn == searchResult.tfn:
+                # Already waiting.
+                return
         thumbRequest = self.Request(searchResult=searchResult)
         self.localWaiting.append(thumbRequest)
         if not self._timer.isActive():
