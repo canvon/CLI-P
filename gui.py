@@ -26,7 +26,7 @@ from PyQt5.QtGui import (
 )
 from PyQt5.QtWidgets import (
     qApp,
-    QApplication, QMainWindow, QAction, QWidget,
+    QApplication, QMainWindow, QAction, QWidget, QMessageBox,
     QSizePolicy,
     QHBoxLayout, QVBoxLayout, QTabWidget,
     QComboBox, QLabel, QPushButton, QTextEdit,
@@ -271,6 +271,18 @@ class MainWindow(QMainWindow):
         self.imagesAddTagAction = addTagAction
         self.imagesDelTagAction = delTagAction
 
+        aboutIcon = QIcon.fromTheme("help-about")
+        self.aboutAction = QAction(aboutIcon, "&About", self)
+        self.aboutAction.setShortcuts(QKeySequence.HelpContents)
+        self.aboutAction.setStatusTip("About the CLI-P GUI...")
+        makeToolTip(self.aboutAction)
+        self.aboutAction.triggered.connect(self.about)
+
+        self.aboutQtAction = QAction("About &Qt", self)
+        self.aboutQtAction.setStatusTip("About the Qt toolkit...")
+        makeToolTip(self.aboutQtAction)
+        self.aboutQtAction.triggered.connect(qApp.aboutQt)
+
     def _createMenus(self):
         menuBar = self.menuBar()
 
@@ -280,6 +292,10 @@ class MainWindow(QMainWindow):
         self.imagesMenu = menuBar.addMenu("&Image")
         self.imagesMenu.addAction(self.imagesAddTagAction)
         self.imagesMenu.addAction(self.imagesDelTagAction)
+
+        self.helpMenu = menuBar.addMenu("&Help")
+        self.helpMenu.addAction(self.aboutAction)
+        self.helpMenu.addAction(self.aboutQtAction)
 
     def _createToolBars(self):
         self.fileToolBar = self.addToolBar("File")
@@ -802,6 +818,9 @@ class MainWindow(QMainWindow):
             self.appendSearchOutput("Search instance missing.")
             return
         self.updateSearchResultSelected(search.maybe_del_tag)
+
+    def about(self):
+        QMessageBox.about(self, None, self.infoLabel.text())
 
 
 if __name__ == '__main__':
